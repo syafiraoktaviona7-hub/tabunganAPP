@@ -248,6 +248,10 @@ fun App() {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  LOGIN SCREEN — Beautiful Blue White Design
+// ═══════════════════════════════════════════════════════════════════
+
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
@@ -259,76 +263,208 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
-    var showPopup by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    val infinite = rememberInfiniteTransition(label = "loginBg")
+    val bearBob by infinite.animateFloat(
+        initialValue = 0f, targetValue = -10f,
+        animationSpec = infiniteRepeatable(tween(1800, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "bearBob"
+    )
+    val starAlpha1 by infinite.animateFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = EaseInOutSine), RepeatMode.Reverse), label = "s1")
+    val starAlpha2 by infinite.animateFloat(0.4f, 1f, infiniteRepeatable(tween(700, delayMillis = 200, easing = EaseInOutSine), RepeatMode.Reverse), label = "s2")
+    val starAlpha3 by infinite.animateFloat(0.4f, 1f, infiniteRepeatable(tween(1100, delayMillis = 400, easing = EaseInOutSine), RepeatMode.Reverse), label = "s3")
 
     Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFFE8F4FF), Color(0xFFF0F8FF), Color(0xFFDCEEFF))
+                )
+            )
     ) {
+        // ── Blob background ──────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .size(280.dp)
+                .offset(x = (-80).dp, y = (-60).dp)
+                .alpha(0.18f)
+                .clip(CircleShape)
+                .background(Blue400)
+        )
+        Box(
+            modifier = Modifier
+                .size(200.dp)
+                .align(Alignment.BottomEnd)
+                .offset(x = 60.dp, y = 60.dp)
+                .alpha(0.15f)
+                .clip(CircleShape)
+                .background(Blue300)
+        )
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // ── Bintang dekorasi ─────────────────────────────────────
+        Text("★", fontSize = 18.sp, color = Color(0xFFFFBF24),
+            modifier = Modifier.offset(x = 32.dp, y = 80.dp).alpha(starAlpha1))
+        Text("✦", fontSize = 13.sp, color = Blue300,
+            modifier = Modifier.offset(x = 300.dp, y = 100.dp).alpha(starAlpha2))
+        Text("★", fontSize = 10.sp, color = Color(0xFFFFBF24),
+            modifier = Modifier.offset(x = 280.dp, y = 60.dp).alpha(starAlpha3))
+        Text("◆", fontSize = 12.sp, color = Blue200,
+            modifier = Modifier.align(Alignment.BottomStart).offset(x = 24.dp, y = (-180).dp).alpha(starAlpha2))
 
-            Text("🐱", fontSize = 60.sp)
+        // ── Konten utama ─────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 28.dp)
+                .padding(top = 60.dp, bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
 
-            Text("Selamat Datang Kembali!")
-            Text("Senang bertemu kamu lagi~ 💙")
+            // Maskot beruang
+            Box(
+                modifier = Modifier
+                    .offset(y = bearBob.dp)
+            ) {
+                BearMascot(isHappy = false)
+            }
 
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                placeholder = { Text("Email") }
-            )
+            Spacer(Modifier.height(20.dp))
 
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                placeholder = { Text("Password") },
-                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = {
-                    IconButton(onClick = { showPassword = !showPassword }) {
-                        Icon(Icons.Default.Visibility, contentDescription = null)
-                    }
-                }
-            )
+            // Card form
+            Card(
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = White.copy(alpha = 0.92f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Judul
+                    Text(
+                        "Selamat Datang Kembali!",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Blue700,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = (-0.3).sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Senang bertemu kamu lagi~ 💙",
+                        fontSize = 13.sp,
+                        color = Blue400,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
 
-            Button(onClick = {
-                if (email.isNotEmpty() && password.isNotEmpty()) {
+                    Spacer(Modifier.height(24.dp))
 
-                    auth.signInWithEmailAndPassword(email, password)
-                        .addOnSuccessListener { showPopup = true }
-                        .addOnFailureListener {
-                            Toast.makeText(context, "Login gagal 😢", Toast.LENGTH_SHORT).show()
+                    // Field Email
+                    AuthTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = "EMAIL",
+                        placeholder = "nama@email.com",
+                        leadingEmoji = "✉",
+                        isPassword = false
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Field Password
+                    AuthTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = "PASSWORD",
+                        placeholder = "Masukkan password...",
+                        leadingEmoji = "🔒",
+                        isPassword = true,
+                        showPassword = showPassword,
+                        onTogglePassword = { showPassword = !showPassword }
+                    )
+
+                    // Lupa password
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = {}) {
+                            Text("Lupa password? 🤔", fontSize = 12.sp, color = Blue400, fontWeight = FontWeight.SemiBold)
                         }
-
-                } else {
-                    Toast.makeText(context, "Isi semua dulu 😅", Toast.LENGTH_SHORT).show()
-                }
-            }) {
-                Text("Masuk 💙")
-            }
-
-            TextButton(onClick = onGoRegister) {
-                Text("Belum punya akun? Daftar")
-            }
-        }
-
-        if (showPopup) {
-            AlertDialog(
-                onDismissRequest = {},
-                confirmButton = {
-                    TextButton(onClick = {
-                        showPopup = false
-                        onLoginSuccess()
-                    }) {
-                        Text("OK")
                     }
-                },
-                title = { Text("sudah selesai! 🎉") },
-                text = { Text("Login berhasil 💙") }
-            )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Tombol masuk
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .shadow(8.dp, RoundedCornerShape(14.dp),
+                                ambientColor = Blue500.copy(0.3f), spotColor = Blue700.copy(0.3f))
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(BtnGrad)
+                            .clickable(enabled = !isLoading) {
+                                if (email.isNotEmpty() && password.isNotEmpty()) {
+                                    isLoading = true
+                                    auth.signInWithEmailAndPassword(email, password)
+                                        .addOnSuccessListener { onLoginSuccess() }
+                                        .addOnFailureListener {
+                                            isLoading = false
+                                            Toast.makeText(context, "Login gagal 😢", Toast.LENGTH_SHORT).show()
+                                        }
+                                } else {
+                                    Toast.makeText(context, "Isi semua dulu 😅", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(color = White, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                        } else {
+                            Text("Masuk Sekarang ✨", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = White)
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Divider
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.weight(1f).height(1.dp).background(Blue100))
+                        Text("  atau  ", fontSize = 11.sp, color = Blue200, fontWeight = FontWeight.SemiBold)
+                        Box(modifier = Modifier.weight(1f).height(1.dp).background(Blue100))
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Link ke register
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Belum punya akun? ", fontSize = 13.sp, color = Blue300, fontWeight = FontWeight.Medium)
+                        Text(
+                            "Daftar di sini! 🚀",
+                            fontSize = 13.sp,
+                            color = Blue600,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.clickable { onGoRegister() }
+                        )
+                    }
+                }
+            }
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+//  REGISTER SCREEN — Beautiful Blue White Design
+// ═══════════════════════════════════════════════════════════════════
 
 @Composable
 fun RegisterScreen(
@@ -341,69 +477,290 @@ fun RegisterScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
-    var showPopup by remember { mutableStateOf(false) }
+    var showPassword by remember { mutableStateOf(false) }
+    var showConfirm by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    val infinite = rememberInfiniteTransition(label = "regBg")
+    val bearBob by infinite.animateFloat(
+        initialValue = 0f, targetValue = -10f,
+        animationSpec = infiniteRepeatable(tween(1800, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "bearBobReg"
+    )
+    val starAlpha1 by infinite.animateFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = EaseInOutSine), RepeatMode.Reverse), label = "rs1")
+    val starAlpha2 by infinite.animateFloat(0.4f, 1f, infiniteRepeatable(tween(700, delayMillis = 300, easing = EaseInOutSine), RepeatMode.Reverse), label = "rs2")
 
-        Text("🐱🎉", fontSize = 60.sp)
-        Text("Yuk mulai perjalananmu bersama kami 💙")
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFFE8F4FF), Color(0xFFF0F8FF), Color(0xFFDCEEFF))
+                )
+            )
+    ) {
+        // Blob background
+        Box(modifier = Modifier.size(260.dp).offset(x = (-70).dp, y = (-50).dp)
+            .alpha(0.16f).clip(CircleShape).background(Blue400))
+        Box(modifier = Modifier.size(180.dp).align(Alignment.BottomEnd)
+            .offset(x = 50.dp, y = 50.dp).alpha(0.14f).clip(CircleShape).background(Blue300))
 
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            placeholder = { Text("Email") }
-        )
+        // Bintang
+        Text("★", fontSize = 18.sp, color = Color(0xFFFFBF24),
+            modifier = Modifier.offset(x = 30.dp, y = 70.dp).alpha(starAlpha1))
+        Text("✦", fontSize = 14.sp, color = Blue300,
+            modifier = Modifier.offset(x = 295.dp, y = 90.dp).alpha(starAlpha2))
+        Text("◆", fontSize = 11.sp, color = Blue200,
+            modifier = Modifier.align(Alignment.BottomStart).offset(x = 20.dp, y = (-120).dp).alpha(starAlpha1))
 
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            placeholder = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation()
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 28.dp)
+                .padding(top = 50.dp, bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
 
-        OutlinedTextField(
-            value = confirm,
-            onValueChange = { confirm = it },
-            placeholder = { Text("Konfirmasi Password") },
-            visualTransformation = PasswordVisualTransformation()
-        )
-
-        Button(onClick = {
-
-            if (email.isEmpty() || password.isEmpty() || confirm.isEmpty()) {
-                Toast.makeText(context, "Isi semua dulu 😅", Toast.LENGTH_SHORT).show()
-
-            } else if (password != confirm) {
-                Toast.makeText(context, "Password tidak sama 😢", Toast.LENGTH_SHORT).show()
-
-            } else {
-                auth.createUserWithEmailAndPassword(email, password)
-                    .addOnSuccessListener { showPopup = true }
-                    .addOnFailureListener {
-                        Toast.makeText(context, "Register gagal 😢", Toast.LENGTH_SHORT).show()
-                    }
+            // Maskot beruang senang
+            Box(modifier = Modifier.offset(y = bearBob.dp)) {
+                BearMascot(isHappy = true)
             }
-        }) {
-            Text("Daftar 💙")
-        }
 
-        TextButton(onClick = onGoLogin) {
-            Text("Sudah punya akun? Login")
-        }
+            Spacer(Modifier.height(16.dp))
 
-        if (showPopup) {
-            AlertDialog(
-                onDismissRequest = {},
-                confirmButton = {
-                    TextButton(onClick = {
-                        showPopup = false
-                        onRegisterSuccess()
-                    }) {
-                        Text("OK")
+            // Card form
+            Card(
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = White.copy(alpha = 0.92f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Buat Akun Baru!",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Blue700,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = (-0.3).sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Yuk mulai perjalananmu bersama kami 💙",
+                        fontSize = 12.sp,
+                        color = Blue400,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(Modifier.height(22.dp))
+
+                    // Email
+                    AuthTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = "EMAIL",
+                        placeholder = "nama@email.com",
+                        leadingEmoji = "✉",
+                        isPassword = false
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Password
+                    AuthTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = "PASSWORD",
+                        placeholder = "Buat password kuat...",
+                        leadingEmoji = "🔒",
+                        isPassword = true,
+                        showPassword = showPassword,
+                        onTogglePassword = { showPassword = !showPassword }
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Konfirmasi password
+                    AuthTextField(
+                        value = confirm,
+                        onValueChange = { confirm = it },
+                        label = "KONFIRMASI PASSWORD",
+                        placeholder = "Ulangi password...",
+                        leadingEmoji = "🛡",
+                        isPassword = true,
+                        showPassword = showConfirm,
+                        onTogglePassword = { showConfirm = !showConfirm }
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // Tombol daftar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .shadow(8.dp, RoundedCornerShape(14.dp),
+                                ambientColor = Blue500.copy(0.3f), spotColor = Blue700.copy(0.3f))
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(BtnGrad)
+                            .clickable(enabled = !isLoading) {
+                                when {
+                                    email.isEmpty() || password.isEmpty() || confirm.isEmpty() ->
+                                        Toast.makeText(context, "Isi semua dulu 😅", Toast.LENGTH_SHORT).show()
+                                    password != confirm ->
+                                        Toast.makeText(context, "Password tidak sama 😢", Toast.LENGTH_SHORT).show()
+                                    password.length < 6 ->
+                                        Toast.makeText(context, "Password minimal 6 karakter 🔑", Toast.LENGTH_SHORT).show()
+                                    else -> {
+                                        isLoading = true
+                                        auth.createUserWithEmailAndPassword(email, password)
+                                            .addOnSuccessListener { onRegisterSuccess() }
+                                            .addOnFailureListener {
+                                                isLoading = false
+                                                Toast.makeText(context, "Register gagal 😢\n${it.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(color = White, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                        } else {
+                            Text("Daftar Sekarang 🎉", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = White)
+                        }
                     }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Divider
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.weight(1f).height(1.dp).background(Blue100))
+                        Text("  atau  ", fontSize = 11.sp, color = Blue200, fontWeight = FontWeight.SemiBold)
+                        Box(modifier = Modifier.weight(1f).height(1.dp).background(Blue100))
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Link ke login
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Sudah punya akun? ", fontSize = 13.sp, color = Blue300, fontWeight = FontWeight.Medium)
+                        Text(
+                            "Masuk di sini! 😊",
+                            fontSize = 13.sp,
+                            color = Blue600,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.clickable { onGoLogin() }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  KOMPONEN REUSABLE — Bear Mascot & Auth TextField
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun BearMascot(isHappy: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(if (isHappy) 110.dp else 130.dp)
+            .shadow(16.dp, CircleShape, ambientColor = Blue300.copy(0.2f), spotColor = Blue400.copy(0.2f)),
+        contentAlignment = Alignment.Center
+    ) {
+        // Lingkaran background
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(listOf(Blue100.copy(0.6f), Blue50.copy(0.3f)))
+                )
+        )
+        // Emoji beruang
+        Text(
+            text = if (isHappy) "🐻🎉" else "🐻",
+            fontSize = if (isHappy) 44.sp else 60.sp,
+            modifier = Modifier.offset(y = if (isHappy) (-2).dp else 0.dp)
+        )
+    }
+}
+
+@Composable
+fun AuthTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    leadingEmoji: String,
+    isPassword: Boolean,
+    showPassword: Boolean = false,
+    onTogglePassword: (() -> Unit)? = null
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            label,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = Blue600,
+            letterSpacing = 1.sp
+        )
+        Spacer(Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color(0xFFF4F9FE))
+                .border(
+                    width = 2.dp,
+                    color = Blue200.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(14.dp)
+                )
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                placeholder = {
+                    Text(placeholder, color = Blue200, fontSize = 13.sp)
                 },
-                title = { Text("sudah selesai! 🎉") },
-                text = { Text("Register berhasil 💙") }
+                visualTransformation = if (isPassword && !showPassword)
+                    PasswordVisualTransformation() else VisualTransformation.None,
+                leadingIcon = {
+                    Text(leadingEmoji, fontSize = 16.sp,
+                        modifier = Modifier.padding(start = 4.dp))
+                },
+                trailingIcon = if (isPassword && onTogglePassword != null) ({
+                    IconButton(onClick = onTogglePassword) {
+                        Icon(
+                            Icons.Default.Visibility,
+                            contentDescription = null,
+                            tint = if (showPassword) Blue500 else Blue200,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }) else null,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    cursorColor = Blue500,
+                    focusedTextColor = Color(0xFF1A5A9A),
+                    unfocusedTextColor = Color(0xFF1A5A9A)
+                ),
+                singleLine = true
             )
         }
     }
