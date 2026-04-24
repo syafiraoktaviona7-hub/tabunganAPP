@@ -1,0 +1,1512 @@
+package com.example.tabunganapp
+
+import androidx.compose.material.icons.filled.Edit
+import android.app.TimePickerDialog
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
+import android.content.Intent
+import android.app.AlarmManager
+import android.app.PendingIntent
+import java.util.*
+import androidx.compose.runtime.mutableStateListOf
+import android.media.MediaPlayer
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
+import com.example.tabunganapp.ui.theme.TabunganAppTheme
+import kotlin.math.cos
+import kotlin.math.sin
+
+// ═══════════════════════════════════════════════════════════════════
+//  🎨 CLEAN MINIMAL THEME — Palette
+// ═══════════════════════════════════════════════════════════════════
+
+// Backgrounds — bersih, tenang, tidak ada gradasi mencolok
+val BgPage        = Color(0xFFF2F8FD)   // Alice blue — halus & bersih
+val BgSurface     = Color(0xFFFFFFFF)   // card / surface utama
+val BgInput       = Color(0xFFF0F6FB)   // input & chip background
+val BgSubtle      = Color(0xFFE8F3FA)   // divider / subtle bg
+
+// Warna utama biru
+val Blue50        = Color(0xFFE3F2FD)   // tint
+val Blue100       = Color(0xFFBBDEFB)   // chip / badge bg
+val Blue300       = Color(0xFF64B5F6)   // soft accent
+val Blue400       = Color(0xFF42A5F5)   // medium accent
+val Blue500       = Color(0xFF2196F3)   // primary action
+val Blue600       = Color(0xFF1E88E5)   // pressed / border
+val Blue700       = Color(0xFF1565C0)   // header dark
+val Blue800       = Color(0xFF0D47A1)   // dark text on blue bg
+
+// Semantic
+val GreenSoft     = Color(0xFF66BB6A)   // success
+val GreenBg       = Color(0xFFE8F5E9)
+val OrangeSoft    = Color(0xFFFF8F00)   // warning / gold coin
+val OrangeBg      = Color(0xFFFFF8E1)
+val RedSoft       = Color(0xFFEF5350)
+
+// Text
+val TextPrimary   = Color(0xFF1A2E42)   // heading utama
+val TextSecondary = Color(0xFF546E7A)   // deskripsi
+val TextHint      = Color(0xFF90A4AE)   // placeholder
+val White         = Color(0xFFFFFFFF)
+
+// Brush — hanya untuk header & tombol utama (subtle)
+val HeaderGrad    = Brush.linearGradient(listOf(Blue700, Blue500))
+val BtnGrad       = Brush.linearGradient(listOf(Blue600, Blue400))
+val GreenGrad     = Brush.linearGradient(listOf(Color(0xFF43A047), GreenSoft))
+
+// ═══════════════════════════════════════════════════════════════════
+//  DATA MODELS
+// ═══════════════════════════════════════════════════════════════════
+
+data class Celengan(
+    var nama: String,
+    var target: Int,
+    var terkumpul: Int = 0,
+    var image: Uri? = null,
+    var nominal: Int = 0,
+    var jenis: String = "Harian",
+    var notifAktif: Boolean = false,
+    var jamNotif: String = "08:00",
+    var hariNotif: List<String> = emptyList(),
+    var riwayat: MutableList<Transaksi> = mutableStateListOf()
+)
+
+data class Transaksi(
+    val tanggal: String,
+    val nominal: Int,
+    val keterangan: String = ""
+)
+
+// ═══════════════════════════════════════════════════════════════════
+//  ACTIVITY
+// ═══════════════════════════════════════════════════════════════════
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
+        }
+        enableEdgeToEdge()
+        setContent {
+            TabunganAppTheme {
+                App()
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  ALARM HELPER
+// ═══════════════════════════════════════════════════════════════════
+
+fun scheduleNotification(context: Context, jam: String) {
+    try {
+        if (jam.isEmpty() || !jam.contains(":")) return
+        val parts  = jam.split(":")
+        val hour   = parts[0].toIntOrNull() ?: return
+        val minute = parts[1].toIntOrNull() ?: return
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_MONTH, 1)
+        }
+        val intent = Intent(context, NotifReceiver::class.java)
+        val pending = PendingIntent.getBroadcast(
+            context, 1001, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            if (alarmManager.canScheduleExactAlarms())
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pending)
+            else
+                alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pending)
+        } else {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pending)
+        }
+    } catch (e: Exception) { e.printStackTrace() }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  APP NAVIGATOR
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun App() {
+    var screen       by remember { mutableStateOf("splash") }
+    var selected     by remember { mutableStateOf<Celengan?>(null) }
+    var listCelengan by remember { mutableStateOf(mutableListOf<Celengan>()) }
+
+    AnimatedContent(
+        targetState = screen,
+        transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(200)) },
+        label = "nav"
+    ) { target ->
+        when (target) {
+            "splash" -> SplashScreen { screen = "home" }
+            "home"   -> HomeScreen(listCelengan, onTambah = { screen = "tambah" }) {
+                selected = it; screen = "detail"
+            }
+            "tambah" -> TambahScreen(
+                onSimpan  = { listCelengan = (listCelengan + it).toMutableList(); screen = "home" },
+                onKembali = { screen = "home" }
+            )
+            "detail" -> selected?.let { DetailScreen(it) { screen = "home" } }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  KOMPONEN REUSABLE
+// ═══════════════════════════════════════════════════════════════════
+
+/** Card bersih dengan shadow halus */
+@Composable
+fun CleanCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(containerColor = BgSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier  = modifier.fillMaxWidth()
+    ) {
+        Column(content = content)
+    }
+}
+
+/** Progress bar biru bersih */
+@Composable
+fun CleanProgressBar(progress: Float, modifier: Modifier = Modifier) {
+    val anim by animateFloatAsState(
+        targetValue   = progress.coerceIn(0f, 1f),
+        animationSpec = tween(700, easing = EaseOutCubic),
+        label         = "bar"
+    )
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(BgSubtle)
+            .height(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(anim)
+                .clip(RoundedCornerShape(50))
+                .background(BtnGrad)
+        )
+    }
+}
+
+/** Circular arc progress */
+@Composable
+fun CircularProgress(
+    progress: Float,
+    size: Int = 64,
+    strokeWidth: Float = 7f,
+    modifier: Modifier = Modifier
+) {
+    val anim by animateFloatAsState(
+        targetValue   = progress.coerceIn(0f, 1f),
+        animationSpec = tween(800, easing = EaseOutCubic),
+        label         = "arc"
+    )
+    Canvas(modifier = modifier.size(size.dp)) {
+        val sw      = strokeWidth
+        val sweep   = anim * 360f
+        val padding = sw / 2
+        val topLeft = androidx.compose.ui.geometry.Offset(padding, padding)
+        val arcSize = androidx.compose.ui.geometry.Size(
+            this.size.width  - sw,
+            this.size.height - sw
+        )
+        // Track
+        drawArc(
+            color      = BgSubtle,
+            startAngle = -90f,
+            sweepAngle = 360f,
+            useCenter  = false,
+            topLeft    = topLeft,
+            size       = arcSize,
+            style      = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = StrokeCap.Round)
+        )
+        // Fill
+        if (sweep > 0f) {
+            drawArc(
+                color      = Blue400,
+                startAngle = -90f,
+                sweepAngle = sweep,
+                useCenter  = false,
+                topLeft    = topLeft,
+                size       = arcSize,
+                style      = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = StrokeCap.Round)
+            )
+        }
+    }
+}
+
+/** Pill badge / tag */
+@Composable
+fun Badge(
+    text: String,
+    bgColor: Color = Blue50,
+    textColor: Color = Blue600,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(bgColor)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = textColor)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SPLASH SCREEN — sederhana & bersih
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun SplashScreen(onFinish: () -> Unit) {
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(2500)
+        onFinish()
+    }
+
+    val infinite = rememberInfiniteTransition(label = "splash")
+    val pigScale by infinite.animateFloat(
+        0.92f, 1.08f,
+        infiniteRepeatable(tween(1100, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "pig"
+    )
+    val dotScale1 by infinite.animateFloat(0.5f, 1.2f, infiniteRepeatable(tween(550, easing = EaseInOutSine), RepeatMode.Reverse), label = "d1")
+    val dotScale2 by infinite.animateFloat(0.5f, 1.2f, infiniteRepeatable(tween(550, delayMillis = 180, easing = EaseInOutSine), RepeatMode.Reverse), label = "d2")
+    val dotScale3 by infinite.animateFloat(0.5f, 1.2f, infiniteRepeatable(tween(550, delayMillis = 360, easing = EaseInOutSine), RepeatMode.Reverse), label = "d3")
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BgPage),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Icon box
+            Box(
+                modifier = Modifier
+                    .size(110.dp)
+                    .shadow(6.dp, RoundedCornerShape(32.dp), ambientColor = Blue400.copy(0.2f), spotColor = Blue500.copy(0.2f))
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(White),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("🐷", fontSize = 52.sp, modifier = Modifier.scale(pigScale))
+            }
+
+            Spacer(Modifier.height(28.dp))
+
+            Text(
+                "TabunganKu",
+                fontSize   = 30.sp,
+                fontWeight = FontWeight.Bold,
+                color      = TextPrimary,
+                letterSpacing = (-0.5).sp
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Wujudkan impianmu, satu hari satu langkah",
+                fontSize = 13.sp,
+                color    = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(52.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(dotScale1, dotScale2, dotScale3).forEachIndexed { i, scale ->
+                    Box(
+                        modifier = Modifier
+                            .scale(scale)
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when (i) { 0 -> Blue400; 1 -> Blue300; else -> Blue100 }
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HOME SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun HomeScreen(
+    list: List<Celengan>,
+    onTambah: () -> Unit,
+    onClickItem: (Celengan) -> Unit
+) {
+    var selectedTab    by remember { mutableStateOf(0) }
+    val totalTarget     = list.sumOf { it.target }
+    val totalTerkumpul  = list.sumOf { it.terkumpul }
+    val overallProgress = if (totalTarget > 0) (totalTerkumpul.toFloat() / totalTarget).coerceIn(0f, 1f) else 0f
+    val totalTercapai   = list.count { it.terkumpul >= it.target }
+
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick        = onTambah,
+                containerColor = Blue500,
+                contentColor   = White,
+                shape          = CircleShape,
+                modifier       = Modifier.size(58.dp)
+            ) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(26.dp))
+            }
+        },
+        containerColor = BgPage
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+
+            // ── HEADER ────────────────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = HeaderGrad,
+                        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+                    )
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 48.dp, bottom = 24.dp)
+            ) {
+                Column {
+                    // App bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(White.copy(alpha = 0.18f)),
+                                contentAlignment = Alignment.Center
+                            ) { Text("🐷", fontSize = 20.sp) }
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text("TabunganKu", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = White)
+                                Text("Halo, semangat nabung!", fontSize = 11.sp, color = White.copy(0.72f))
+                            }
+                        }
+                        Badge(
+                            text      = "${list.size} Aktif",
+                            bgColor   = White.copy(alpha = 0.20f),
+                            textColor = White
+                        )
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // Summary cards — ringkas & rapi
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Total terkumpul
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(White.copy(alpha = 0.15f))
+                                .padding(14.dp)
+                        ) {
+                            Column {
+                                Text("Terkumpul", fontSize = 11.sp, color = White.copy(0.75f))
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Rp ${"%,d".format(totalTerkumpul)}",
+                                    fontSize   = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = White,
+                                    maxLines   = 1,
+                                    overflow   = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        // Target
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(White.copy(alpha = 0.15f))
+                                .padding(14.dp)
+                        ) {
+                            Column {
+                                Text("Target Total", fontSize = 11.sp, color = White.copy(0.75f))
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Rp ${"%,d".format(totalTarget)}",
+                                    fontSize   = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = White,
+                                    maxLines   = 1,
+                                    overflow   = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text("$totalTercapai celengan tercapai", fontSize = 10.sp, color = White.copy(0.65f))
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Progress bar ringkas di header
+                    Column {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Progress keseluruhan", fontSize = 11.sp, color = White.copy(0.75f))
+                            Text("${(overallProgress * 100).toInt()}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = White)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(White.copy(0.22f))
+                        ) {
+                            val animProg by animateFloatAsState(overallProgress, tween(700, easing = EaseOutCubic), label = "hprog")
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(animProg)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(White.copy(0.9f))
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // ── TAB BAR ───────────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(BgSubtle)
+                    .padding(3.dp)
+            ) {
+                listOf("Berlangsung", "Tercapai").forEachIndexed { idx, label ->
+                    val selected = selectedTab == idx
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (selected) White else Color.Transparent)
+                            .clickable { selectedTab = idx }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            fontSize   = 13.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            color      = if (selected) Blue600 else TextSecondary
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // ── LIST ──────────────────────────────────────────────────
+            val filteredList = when (selectedTab) {
+                0    -> list.filter { it.terkumpul < it.target }
+                else -> list.filter { it.terkumpul >= it.target }
+            }
+
+            if (filteredList.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(BgPage),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .background(BgSubtle),
+                            contentAlignment = Alignment.Center
+                        ) { Text("🐷", fontSize = 36.sp) }
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            if (selectedTab == 0) "Belum ada tabungan" else "Belum ada yang tercapai",
+                            fontSize   = 15.sp,
+                            color      = TextPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Tap tombol + untuk mulai menabung",
+                            fontSize = 13.sp,
+                            color    = TextSecondary
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier            = Modifier.fillMaxSize().background(BgPage),
+                    contentPadding      = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(filteredList) { item ->
+                        CelenganCard(item = item, onClick = { onClickItem(item) })
+                    }
+                    item { Spacer(Modifier.height(80.dp)) }
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CELENGAN CARD — bersih & minimalis
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun CelenganCard(item: Celengan, onClick: () -> Unit) {
+    val progress = if (item.target > 0) (item.terkumpul.toFloat() / item.target).coerceIn(0f, 1f) else 0f
+    val sisa     = item.target - item.terkumpul
+    val tercapai = item.terkumpul >= item.target
+
+    val perHari = if (item.nominal > 0) when (item.jenis) {
+        "Mingguan" -> item.nominal / 7
+        "Bulanan"  -> item.nominal / 30
+        else       -> item.nominal
+    }.coerceAtLeast(1) else 0
+    val hariLagi = if (perHari > 0) (sisa / perHari).coerceAtLeast(0) else 0
+
+    Card(
+        onClick    = onClick,
+        shape      = RoundedCornerShape(16.dp),
+        colors     = CardDefaults.cardColors(containerColor = BgSurface),
+        elevation  = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier   = Modifier.fillMaxWidth()
+    ) {
+        // Foto impian (jika ada)
+        if (item.image != null) {
+            Box(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                Image(
+                    painter = rememberAsyncImagePainter(item.image),
+                    contentDescription = null,
+                    modifier     = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                // gradient overlay tipis
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, TextPrimary.copy(0.25f))
+                            )
+                        )
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Baris atas: icon + nama + progress circle
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (tercapai) GreenBg else Blue50),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(if (tercapai) "🏆" else "🐷", fontSize = 20.sp)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            item.nama,
+                            fontSize   = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color      = TextPrimary,
+                            maxLines   = 1,
+                            overflow   = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Badge(
+                            text      = item.jenis,
+                            bgColor   = Blue50,
+                            textColor = Blue600
+                        )
+                    }
+                }
+                // Mini progress circle
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgress(progress = progress, size = 48, strokeWidth = 5f)
+                    Text(
+                        "${(progress * 100).toInt()}%",
+                        fontSize   = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = if (tercapai) GreenSoft else Blue500
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Nominal baris
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.Bottom
+            ) {
+                Column {
+                    Text("Terkumpul", fontSize = 10.sp, color = TextHint)
+                    Text(
+                        "Rp ${"%,d".format(item.terkumpul)}",
+                        fontSize   = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = if (tercapai) GreenSoft else Blue500
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Target", fontSize = 10.sp, color = TextHint)
+                    Text(
+                        "Rp ${"%,d".format(item.target)}",
+                        fontSize   = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = TextPrimary
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            CleanProgressBar(progress = progress, modifier = Modifier.fillMaxWidth())
+
+            Spacer(Modifier.height(10.dp))
+
+            // Footer
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                if (tercapai) {
+                    Badge("Tercapai", GreenBg, GreenSoft)
+                } else {
+                    Badge(
+                        text      = "Sisa $hariLagi hari",
+                        bgColor   = Blue50,
+                        textColor = Blue600
+                    )
+                }
+                if (item.nominal > 0) {
+                    Text(
+                        "Rp ${"%,d".format(item.nominal)} / ${item.jenis.lowercase()}",
+                        fontSize = 11.sp,
+                        color    = TextSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DETAIL SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun DetailScreen(celengan: Celengan, onKembali: () -> Unit) {
+    var input    by remember { mutableStateOf("") }
+    var coinList by remember { mutableStateOf(listOf<Int>()) }
+    val context  = LocalContext.current
+    val progress = if (celengan.target > 0) (celengan.terkumpul.toFloat() / celengan.target).coerceIn(0f, 1f) else 0f
+    val tercapai = celengan.terkumpul >= celengan.target
+
+    Box(Modifier.fillMaxSize().background(BgPage)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+
+            // ── HEADER ────────────────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = HeaderGrad,
+                        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+                    )
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 48.dp, bottom = 24.dp)
+            ) {
+                Column {
+                    // Nav row
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(White.copy(0.18f))
+                                .clickable { onKembali() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.ArrowBack, null, tint = White, modifier = Modifier.size(18.dp))
+                        }
+                        Text(
+                            celengan.nama,
+                            fontSize   = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color      = White,
+                            maxLines   = 1,
+                            overflow   = TextOverflow.Ellipsis,
+                            modifier   = Modifier.weight(1f).padding(horizontal = 12.dp),
+                            textAlign  = TextAlign.Center
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(White.copy(0.18f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Delete, null, tint = White.copy(0.8f), modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // Progress display
+                    Row(
+                        modifier          = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Circular progress besar
+                        Box(contentAlignment = Alignment.Center) {
+                            CircularProgress(progress = progress, size = 80, strokeWidth = 8f)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("${(progress * 100).toInt()}%", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = White)
+                                Text("tercapai", fontSize = 9.sp, color = White.copy(0.7f))
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Terkumpul", fontSize = 11.sp, color = White.copy(0.72f))
+                            Text(
+                                "Rp ${"%,d".format(celengan.terkumpul)}",
+                                fontSize   = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = White
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text("Target", fontSize = 10.sp, color = White.copy(0.6f))
+                                    Text("Rp ${"%,d".format(celengan.target)}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = White.copy(0.9f))
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Sisa", fontSize = 10.sp, color = White.copy(0.6f))
+                                    Text("Rp ${"%,d".format((celengan.target - celengan.terkumpul).coerceAtLeast(0))}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = White.copy(0.9f))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── KONTEN SCROLL ─────────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 16.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
+                // Stat chips
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    data class Stat(val label: String, val value: String, val bg: Color)
+                    listOf(
+                        Stat("Estimasi",
+                            if (celengan.nominal > 0) "${(celengan.target - celengan.terkumpul).coerceAtLeast(0) / celengan.nominal.coerceAtLeast(1)} hari" else "—",
+                            Blue50
+                        ),
+                        Stat("Per ${celengan.jenis.lowercase()}",
+                            "Rp ${"%,d".format(celengan.nominal)}",
+                            OrangeBg
+                        ),
+                        Stat("Transaksi", "${celengan.riwayat.size}x", GreenBg)
+                    ).forEach { s ->
+                        CleanCard(modifier = Modifier.weight(1f)) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(s.bg),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // warna dot kecil sebagai pengganti emoji
+                                    Box(Modifier.size(12.dp).clip(CircleShape).background(Blue400))
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Text(s.value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                Text(s.label, fontSize = 10.sp, color = TextSecondary, textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                }
+
+                // Notifikasi
+                CleanCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Blue50),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Notifications, null, tint = Blue500, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Pengingat Menabung", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                Text(celengan.jamNotif, fontSize = 12.sp, color = TextSecondary)
+                            }
+                        }
+                        Switch(
+                            checked = celengan.notifAktif,
+                            onCheckedChange = {
+                                celengan.notifAktif = it
+                                if (it) scheduleNotification(context, celengan.jamNotif)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = White,
+                                checkedTrackColor = Blue500
+                            )
+                        )
+                    }
+                }
+
+                // Input nabung
+                CleanCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Isi Tabungan", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                        Spacer(Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value         = input,
+                            onValueChange = { input = it },
+                            label         = { Text("Nominal (Rp)") },
+                            modifier      = Modifier.fillMaxWidth(),
+                            shape         = RoundedCornerShape(12.dp),
+                            colors        = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Blue500,
+                                focusedLabelColor  = Blue500,
+                                cursorColor        = Blue500
+                            ),
+                            prefix = { Text("Rp ", color = TextHint) }
+                        )
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // Quick chips
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("5.000" to 5000, "10.000" to 10000, "50.000" to 50000).forEach { (label, value) ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Blue50)
+                                        .border(1.dp, Blue100, RoundedCornerShape(8.dp))
+                                        .clickable { input = value.toString() }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text("Rp $label", fontSize = 12.sp, color = Blue600, fontWeight = FontWeight.Medium)
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Tombol nabung
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(BtnGrad)
+                                .clickable {
+                                    val tambah = input.toIntOrNull() ?: 0
+                                    if (tambah > 0) {
+                                        celengan.terkumpul += tambah
+                                        val now = java.text.SimpleDateFormat("dd MMM yyyy • HH:mm").format(java.util.Date())
+                                        celengan.riwayat.add(Transaksi(tanggal = now, nominal = tambah))
+                                        input    = ""
+                                        coinList = (1..16).toList()
+                                        val mp = MediaPlayer.create(context, R.raw.coin)
+                                        mp.setOnCompletionListener { it.release() }
+                                        mp.start()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Nabung Sekarang",
+                                fontSize   = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = White
+                            )
+                        }
+                    }
+                }
+
+                // Riwayat transaksi
+                if (celengan.riwayat.isNotEmpty()) {
+                    CleanCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Riwayat Transaksi", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                            Spacer(Modifier.height(12.dp))
+
+                            celengan.riwayat.reversed().forEachIndexed { idx, trx ->
+                                if (idx > 0) {
+                                    HorizontalDivider(
+                                        color     = BgSubtle,
+                                        thickness = 1.dp,
+                                        modifier  = Modifier.padding(vertical = 6.dp)
+                                    )
+                                }
+                                Row(
+                                    modifier              = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment     = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(OrangeBg),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("🪙", fontSize = 16.sp)
+                                        }
+                                        Spacer(Modifier.width(10.dp))
+                                        Column {
+                                            Text("Menabung", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                            Text(trx.tanggal, fontSize = 10.sp, color = TextSecondary)
+                                        }
+                                    }
+                                    Badge(
+                                        text      = "+Rp ${"%,d".format(trx.nominal)}",
+                                        bgColor   = GreenBg,
+                                        textColor = GreenSoft
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Tombol kembali
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(BgSubtle)
+                        .clickable { onKembali() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Kembali", color = Blue600, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                }
+            }
+        }
+
+        // ── COIN RAIN — hanya koin emas 🪙 ────────────────────────────
+        coinList.forEachIndexed { index, _ ->
+            val offsetY = remember { Animatable(-120f) }
+            val randomX = remember { (16..340).random() }
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(index * 80L)
+                offsetY.animateTo(
+                    targetValue   = 1200f,
+                    animationSpec = tween(2200, easing = EaseInCubic)
+                )
+            }
+            Text(
+                text  = "🪙",
+                fontSize = (18 + (index % 4) * 3).sp,
+                modifier = Modifier
+                    .offset(x = randomX.dp, y = offsetY.value.dp)
+                    .alpha(0.92f)
+                    .align(Alignment.TopStart)
+            )
+        }
+        LaunchedEffect(coinList) {
+            if (coinList.isNotEmpty()) {
+                kotlinx.coroutines.delay(2600)
+                coinList = emptyList()
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TAMBAH SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun TambahScreen(
+    onSimpan: (Celengan) -> Unit,
+    onKembali: () -> Unit
+) {
+    var nama         by remember { mutableStateOf("") }
+    var target       by remember { mutableStateOf("") }
+    var nominal      by remember { mutableStateOf("") }
+    var jenis        by remember { mutableStateOf("Harian") }
+    var imageUri     by remember { mutableStateOf<Uri?>(null) }
+    var notifAktif   by remember { mutableStateOf(false) }
+    var jam          by remember { mutableStateOf("08:00") }
+    var hariTerpilih by remember { mutableStateOf(setOf<String>()) }
+    val context      = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { imageUri = it }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BgPage)
+    ) {
+        // ── HEADER ────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = HeaderGrad,
+                    shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+                )
+                .padding(horizontal = 20.dp)
+                .padding(top = 48.dp, bottom = 22.dp)
+        ) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(White.copy(0.18f))
+                            .clickable { onKembali() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.ArrowBack, null, tint = White, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("Buat Celengan Baru", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = White)
+                        Text("Tentukan targetmu hari ini", fontSize = 11.sp, color = White.copy(0.72f))
+                    }
+                }
+            }
+        }
+
+        // ── FORM ──────────────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(top = 16.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
+            // Foto picker
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { launcher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (imageUri != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(imageUri),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(TextPrimary.copy(0.28f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .background(White.copy(0.88f)),
+                                    contentAlignment = Alignment.Center
+                                ) { Text("📷", fontSize = 20.sp) }
+                                Spacer(Modifier.height(6.dp))
+                                Text("Ganti Foto", fontSize = 12.sp, color = White, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Blue50),
+                                contentAlignment = Alignment.Center
+                            ) { Text("🌄", fontSize = 26.sp) }
+                            Spacer(Modifier.height(10.dp))
+                            Text("Tambah Foto Impian", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Blue500)
+                            Text("Ketuk untuk memilih gambar", fontSize = 11.sp, color = TextSecondary)
+                        }
+                    }
+                }
+            }
+
+            // Detail tabungan
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Detail Tabungan", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Spacer(Modifier.height(14.dp))
+                    OutlinedTextField(
+                        value         = nama,
+                        onValueChange = { nama = it },
+                        label         = { Text("Nama Tabungan") },
+                        placeholder   = { Text("mis. Beli HP Baru") },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Blue500,
+                            focusedLabelColor  = Blue500,
+                            cursorColor        = Blue500
+                        )
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value         = target,
+                        onValueChange = { target = it },
+                        label         = { Text("Target Tabungan") },
+                        placeholder   = { Text("mis. 2000000") },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        prefix        = { Text("Rp ", color = TextHint) },
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Blue500,
+                            focusedLabelColor  = Blue500,
+                            cursorColor        = Blue500
+                        )
+                    )
+                }
+            }
+
+            // Rencana pengisian
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Rencana Pengisian", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Spacer(Modifier.height(14.dp))
+
+                    // Jenis tabs
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(BgSubtle)
+                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        listOf("Harian", "Mingguan", "Bulanan").forEach { j ->
+                            val dipilih = jenis == j
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (dipilih) Blue500 else Color.Transparent)
+                                    .clickable { jenis = j }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    j,
+                                    fontSize   = 12.sp,
+                                    fontWeight = if (dipilih) FontWeight.SemiBold else FontWeight.Normal,
+                                    color      = if (dipilih) White else TextSecondary
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value         = nominal,
+                        onValueChange = { nominal = it },
+                        label         = { Text("Nominal $jenis") },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        prefix        = { Text("Rp ", color = TextHint) },
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Blue500,
+                            focusedLabelColor  = Blue500,
+                            cursorColor        = Blue500
+                        )
+                    )
+                }
+            }
+
+            // Notifikasi
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Blue50),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Notifications, null, tint = Blue500, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Aktifkan Pengingat", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                Text("Jadwalkan waktu nabung", fontSize = 11.sp, color = TextSecondary)
+                            }
+                        }
+                        Switch(
+                            checked = notifAktif,
+                            onCheckedChange = { notifAktif = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = White,
+                                checkedTrackColor = Blue500
+                            )
+                        )
+                    }
+
+                    AnimatedVisibility(visible = notifAktif) {
+                        Column {
+                            Spacer(Modifier.height(14.dp))
+                            HorizontalDivider(color = BgSubtle)
+                            Spacer(Modifier.height(14.dp))
+
+                            // Time picker
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(BgInput)
+                                    .padding(14.dp)
+                                    .clickable {
+                                        val parts = jam.split(":")
+                                        TimePickerDialog(context, { _, h, m ->
+                                            jam = String.format("%02d:%02d", h, m)
+                                        }, parts[0].toInt(), parts[1].toInt(), true).show()
+                                    },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment     = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Waktu Pengingat", fontSize = 11.sp, color = TextSecondary)
+                                    Text(jam, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Blue500)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Blue50),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Edit, null, tint = Blue500, modifier = Modifier.size(16.dp))
+                                }
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+
+                            Text("Hari Pengingat", fontSize = 12.sp, color = TextSecondary, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.height(10.dp))
+
+                            val listHari = listOf("Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab")
+                            val fullHari = listOf("Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu")
+
+                            Row(
+                                modifier              = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                fullHari.forEachIndexed { i, hari ->
+                                    val dipilih = hariTerpilih.contains(hari)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(if (dipilih) Blue500 else BgSubtle)
+                                            .border(if (!dipilih) 1.dp else 0.dp, Blue100, CircleShape)
+                                            .clickable {
+                                                hariTerpilih = if (dipilih) hariTerpilih - hari else hariTerpilih + hari
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            listHari[i],
+                                            fontSize   = 10.sp,
+                                            fontWeight = if (dipilih) FontWeight.SemiBold else FontWeight.Normal,
+                                            color      = if (dipilih) White else TextSecondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Tombol simpan
+            val canSave = nama.isNotEmpty() && (target.toIntOrNull() ?: 0) > 0
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        if (canSave) BtnGrad
+                        else Brush.linearGradient(listOf(BgSubtle, BgSubtle))
+                    )
+                    .clickable(enabled = canSave) {
+                        val t = target.toIntOrNull() ?: 0
+                        val n = nominal.toIntOrNull() ?: 0
+                        if (notifAktif && jam.isNotEmpty()) scheduleNotification(context, jam)
+                        onSimpan(Celengan(nama, t, 0, imageUri, n, jenis, notifAktif, jam, hariTerpilih.toList()))
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Buat Celengan",
+                    fontSize   = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = if (canSave) White else TextHint
+                )
+            }
+
+            // Batal
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(BgSubtle)
+                    .clickable { onKembali() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Batal", color = Blue600, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            }
+        }
+    }
+}

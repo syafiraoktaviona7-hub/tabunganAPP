@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "43031735763",
+    "project_id": "wishpay-9be8a",
+    "storage_bucket": "wishpay-9be8a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:43031735763:android:f77c62ea739ba3bfecd326",
+        "android_client_info": {
+          "package_name": "com.example.tabunganapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6HeuhLiaRL8tZOOy5hpz08Ug25QhTeWU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
