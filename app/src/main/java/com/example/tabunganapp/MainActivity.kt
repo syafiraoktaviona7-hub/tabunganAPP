@@ -150,7 +150,9 @@ class MainActivity : ComponentActivity() {
 //  ALARM HELPER
 // ═══════════════════════════════════════════════════════════════════
 
-fun scheduleNotification(context: Context, jam: String) {
+fun scheduleNotification(context: Context, jam: String, userId: String){
+
+
     try {
         if (jam.isEmpty() || !jam.contains(":")) return
         val parts  = jam.split(":")
@@ -163,10 +165,18 @@ fun scheduleNotification(context: Context, jam: String) {
             if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_MONTH, 1)
         }
         val intent = Intent(context, NotifReceiver::class.java)
+
+        intent.putExtra("USER_ID", userId)
+
+        val requestCode = userId.hashCode()
+
         val pending = PendingIntent.getBroadcast(
-            context, 1001, intent,
+            context,
+            requestCode,
+            intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             if (alarmManager.canScheduleExactAlarms())
@@ -177,6 +187,22 @@ fun scheduleNotification(context: Context, jam: String) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pending)
         }
     } catch (e: Exception) { e.printStackTrace() }
+}
+
+fun cancelNotification(context: Context, userId: String) {
+    val intent = Intent(context, NotifReceiver::class.java)
+
+    val requestCode = userId.hashCode()
+
+    val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        requestCode,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarmManager.cancel(pendingIntent)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1239,6 +1265,9 @@ fun HomeScreen(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(White.copy(alpha = 0.2f))
                                     .clickable {
+                                        val userId = auth.currentUser?.uid ?: ""
+                                        cancelNotification(context, userId)
+
                                         auth.signOut()
 
                                         (context as? ComponentActivity)?.setContent {
@@ -1878,7 +1907,10 @@ fun DetailScreen(
                             checked = celengan.notifAktif,
                             onCheckedChange = {
                                 celengan.notifAktif = it
-                                if (it) scheduleNotification(context, celengan.jamNotif)
+                                if (it) {
+                                    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                                    scheduleNotification(context, celengan.jamNotif, userId)
+                                }
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = White,
@@ -3593,7 +3625,10 @@ fun TambahScreen(
                     .clickable(enabled = canSave) {
                         val t = target.toIntOrNull() ?: 0
                         val n = nominal.toIntOrNull() ?: 0
-                        if (notifAktif && jam.isNotEmpty()) scheduleNotification(context, jam)
+                        if (notifAktif && jam.isNotEmpty()) {
+                            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                            scheduleNotification(context, jam, userId)
+                        }
                         onSimpan(
                             Celengan(
                                 nama,

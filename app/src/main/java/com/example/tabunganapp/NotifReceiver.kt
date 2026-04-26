@@ -8,10 +8,16 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.google.firebase.auth.FirebaseAuth
 
 class NotifReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val notifUserId = intent.getStringExtra("USER_ID") ?: return
+
+        if (currentUserId != notifUserId) return
 
         val channelId = "tabungan_channel_v2"
 
