@@ -1,5 +1,6 @@
 package com.example.tabunganapp
 
+import com.example.tabunganapp.DataStoreManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -189,6 +190,8 @@ fun App() {
 
     val currentUser = auth.currentUser
 
+    val userId = currentUser?.uid ?: ""
+
     var screen by remember {
         mutableStateOf(
             "splash"
@@ -206,12 +209,17 @@ fun App() {
     val context = LocalContext.current
     val dataStore = DataStoreManager(context)
 
-    LaunchedEffect(Unit) {
-        listCelengan = dataStore.loadCelengan().toMutableList()
+    // LOAD
+    LaunchedEffect(userId) {
+        if (userId.isNotEmpty()) {
+            listCelengan = dataStore.loadCelengan(userId).toMutableList()
+        }
     }
 
-    LaunchedEffect(listCelengan) {
-        dataStore.saveCelengan(listCelengan)
+    LaunchedEffect(listCelengan, userId) {
+        if (userId.isNotEmpty()) {
+            dataStore.saveCelengan(userId, listCelengan)
+        }
     }
 
     AnimatedContent(

@@ -11,11 +11,10 @@ val Context.dataStore by preferencesDataStore(name = "tabungan_prefs")
 
 class DataStoreManager(private val context: Context) {
 
-    companion object {
-        val CELENGAN_KEY = stringPreferencesKey("celengan_list")
-    }
+    private fun getKey(userId: String) =
+        stringPreferencesKey("celengan_$userId")
 
-    suspend fun saveCelengan(list: List<Celengan>) {
+    suspend fun saveCelengan(userId: String, list: List<Celengan>) {
         val jsonArray = JSONArray()
 
         list.forEach {
@@ -37,13 +36,13 @@ class DataStoreManager(private val context: Context) {
         }
 
         context.dataStore.edit {
-            it[CELENGAN_KEY] = jsonArray.toString()
+            it[getKey(userId)] = jsonArray.toString()
         }
     }
 
-    suspend fun loadCelengan(): List<Celengan> {
+    suspend fun loadCelengan(userId: String): List<Celengan> {
         val prefs = context.dataStore.data.first()
-        val jsonString = prefs[CELENGAN_KEY] ?: return emptyList()
+        val jsonString = prefs[getKey(userId)] ?: return emptyList()
 
         val list = mutableListOf<Celengan>()
         val jsonArray = JSONArray(jsonString)
