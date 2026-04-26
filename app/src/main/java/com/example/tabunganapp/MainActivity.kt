@@ -1,6 +1,8 @@
 package com.example.tabunganapp
 
-
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import android.widget.Toast
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -9,7 +11,6 @@ import com.google.firebase.auth.FirebaseAuth
 import java.io.File
 import java.io.FileOutputStream
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
@@ -186,17 +187,21 @@ fun App() {
 
     val auth = FirebaseAuth.getInstance()
 
-    var screen by remember { mutableStateOf("login") }
-
     val currentUser = auth.currentUser
 
-    LaunchedEffect(Unit) {
-        if (currentUser != null) {
-            screen = "home"
-        }
+    var screen by remember {
+        mutableStateOf(
+            "splash"
+        )
     }
+
+
     var selected     by remember { mutableStateOf<Celengan?>(null) }
     var listCelengan by remember { mutableStateOf(mutableListOf<Celengan>()) }
+
+    fun updateList() {
+        listCelengan = listCelengan.toMutableList()
+    }
 
     val context = LocalContext.current
     val dataStore = DataStoreManager(context)
@@ -215,7 +220,13 @@ fun App() {
         label = "nav"
     ) { target ->
         when (target) {
-            "splash" -> SplashScreen { screen = "home" }
+            "splash" -> SplashScreen {
+                if (auth.currentUser != null) {
+                    screen = "home"
+                } else {
+                    screen = "login"
+                }
+            }
             "home"   -> HomeScreen(listCelengan, onTambah = { screen = "tambah" }) {
                 selected = it; screen = "detail"
             }
@@ -226,6 +237,7 @@ fun App() {
             "detail" -> selected?.let {
                 DetailScreen(
                     celengan = it,
+                    onUpdate = { updateList() },
                     onKembali = { screen = "home" },
                     onDelete = { cel ->
                         listCelengan = listCelengan.filter { it != cel }.toMutableList()
@@ -1596,7 +1608,8 @@ fun CelenganCard(item: Celengan, onClick: () -> Unit) {
 fun DetailScreen(
     celengan: Celengan,
     onKembali: () -> Unit,
-    onDelete: (Celengan) -> Unit
+    onDelete: (Celengan) -> Unit,
+    onUpdate: () -> Unit // 🔥 TAMBAH INI
 ) {
     var input    by remember { mutableStateOf("") }
     var coinList by remember { mutableStateOf(listOf<Int>()) }
@@ -1918,7 +1931,9 @@ fun DetailScreen(
                                     val tambah = input.toIntOrNull() ?: 0
                                     if (tambah > 0) {
                                         celengan.terkumpul += tambah
-                                        val now = java.text.SimpleDateFormat("dd MMM yyyy • HH:mm").format(java.util.Date())
+                                        onUpdate()
+                                        val now = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault())
+                                            .format(Date())
                                         celengan.riwayat.add(
                                             Transaksi(
                                                 tanggal = now,
@@ -2628,11 +2643,18 @@ fun DetailScreen(
                                     )
                                     .clickable {
                                         celengan.terkumpul -= nominalKeluar
-                                        val now = java.text.SimpleDateFormat("dd MMM yyyy • HH:mm")
-                                            .format(java.util.Date())
+                                        onUpdate()
+
+                                        val now = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault())
+                                            .format(Date())
                                         celengan.riwayat.add(
-                                            Transaksi(tanggal = now, nominal = nominalKeluar, tipe = "KELUAR")
+                                            Transaksi(
+                                                tanggal = now,
+                                                nominal = nominalKeluar,
+                                                tipe = "KELUAR"
+                                            )
                                         )
+
                                         input = ""
                                         showDialog = false
                                     },
