@@ -101,9 +101,6 @@ val HeaderGrad    = Brush.linearGradient(listOf(Blue700, Blue500))
 val BtnGrad       = Brush.linearGradient(listOf(Blue600, Blue400))
 val GreenGrad     = Brush.linearGradient(listOf(Color(0xFF43A047), GreenSoft))
 
-// ═══════════════════════════════════════════════════════════════════
-//  DATA MODELS
-// ═══════════════════════════════════════════════════════════════════
 
 data class Celengan(
     var nama: String,
