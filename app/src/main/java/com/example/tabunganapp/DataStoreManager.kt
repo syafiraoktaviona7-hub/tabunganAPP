@@ -75,4 +75,20 @@ class DataStoreManager(private val context: Context) {
 
         return list
     }
+
+    // ── FOTO PROFIL ──────────────────────────────────────────────
+    private fun getProfileImageKey(userId: String) =
+        stringPreferencesKey("profile_image_$userId")
+
+    suspend fun saveProfileImage(userId: String, imageUri: String) {
+        context.dataStore.edit { prefs ->
+            prefs[getProfileImageKey(userId)] = imageUri
+        }
+    }
+
+    suspend fun loadProfileImage(userId: String): String? {
+        val prefs = context.dataStore.data.first()
+        return prefs[getProfileImageKey(userId)]
+    }
+
 }

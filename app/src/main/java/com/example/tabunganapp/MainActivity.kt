@@ -1,6 +1,7 @@
 package com.example.tabunganapp
 
 import com.example.tabunganapp.DataStoreManager
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -4647,11 +4648,30 @@ fun ProfileScreen(
 
 
     var profileImageUri  by remember { mutableStateOf<Uri?>(null) }
+    val dataStore = DataStoreManager(context)
+    val userId2 = currentUser?.uid ?: ""
+
+    // Load foto profil saat pertama buka
+    LaunchedEffect(userId2) {
+        if (userId2.isNotEmpty()) {
+            val saved = dataStore.loadProfileImage(userId2)
+            if (!saved.isNullOrEmpty()) {
+                profileImageUri = Uri.parse(saved)
+            }
+        }
+    }
 
     val profileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
-        uri?.let { profileImageUri = saveImageToInternalStorage(context, it) }
+        uri?.let {
+            val saved = saveImageToInternalStorage(context, it)
+            profileImageUri = saved
+            // Simpan permanen ke DataStore
+            kotlinx.coroutines.MainScope().launch {
+                dataStore.saveProfileImage(userId2, saved.toString())
+            }
+        }
     }
 
     // ── Stats ─────────────────────────────────────────────────────
