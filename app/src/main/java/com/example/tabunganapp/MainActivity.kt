@@ -276,9 +276,20 @@ fun App() {
                     onDelete = { cel ->
                         listCelengan = listCelengan.filter { it != cel }.toMutableList()
                         screen = "home"
-                    }
+                    },
+                    onEdit = { screen = "edit" }
                 )
+            }
 
+            "edit" -> selected?.let {
+                EditScreen(
+                    celengan = it,
+                    onSimpan = {
+                        updateList()
+                        screen = "detail"
+                    },
+                    onKembali = { screen = "detail" }
+                )
             }
 
             "login" -> LoginScreen(
@@ -1183,6 +1194,7 @@ fun HomeScreen(
     onClickItem: (Celengan) -> Unit
 ) {
     var selectedTab    by remember { mutableStateOf(0) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
     val totalTarget     = list.sumOf { it.target }
     val totalTerkumpul  = list.sumOf { it.terkumpul }
     val overallProgress = if (totalTarget > 0) (totalTerkumpul.toFloat() / totalTarget).coerceIn(0f, 1f) else 0f
@@ -1265,14 +1277,7 @@ fun HomeScreen(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(White.copy(alpha = 0.2f))
                                     .clickable {
-                                        val userId = auth.currentUser?.uid ?: ""
-                                        cancelNotification(context, userId)
-
-                                        auth.signOut()
-
-                                        (context as? ComponentActivity)?.setContent {
-                                            App()
-                                        }
+                                        showLogoutDialog = true
                                     }
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
@@ -1474,6 +1479,312 @@ fun HomeScreen(
             }
         }
     }
+
+    // ═══════════════════════════════════════
+    //  POPUP LOGOUT — Cute Bear Animated
+    // ═══════════════════════════════════════
+    if (showLogoutDialog) {
+
+        val infiniteL = rememberInfiniteTransition(label = "logoutAnim")
+
+        val bearBob by infiniteL.animateFloat(
+            initialValue = 0f, targetValue = -10f,
+            animationSpec = infiniteRepeatable(tween(1800, easing = EaseInOutSine), RepeatMode.Reverse),
+            label = "bearBobLogout"
+        )
+        val ringAlpha by infiniteL.animateFloat(
+            initialValue = 0.25f, targetValue = 0.85f,
+            animationSpec = infiniteRepeatable(tween(1000, easing = EaseInOutSine), RepeatMode.Reverse),
+            label = "ringAlphaLogout"
+        )
+        val heartBeat by infiniteL.animateFloat(
+            initialValue = 1f, targetValue = 1.22f,
+            animationSpec = infiniteRepeatable(tween(700, easing = EaseInOutSine), RepeatMode.Reverse),
+            label = "heartBeat"
+        )
+        val starAlpha1 by infiniteL.animateFloat(
+            initialValue = 0.4f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(900, easing = EaseInOutSine), RepeatMode.Reverse),
+            label = "star1"
+        )
+        val starAlpha2 by infiniteL.animateFloat(
+            initialValue = 0.4f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(700, delayMillis = 300, easing = EaseInOutSine), RepeatMode.Reverse),
+            label = "star2"
+        )
+        val starAlpha3 by infiniteL.animateFloat(
+            initialValue = 0.4f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1100, delayMillis = 150, easing = EaseInOutSine), RepeatMode.Reverse),
+            label = "star3"
+        )
+        val popupScale by animateFloatAsState(
+            targetValue = if (showLogoutDialog) 1f else 0.85f,
+            animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
+            label = "popupScale"
+        )
+
+        val auth2 = FirebaseAuth.getInstance()
+        val context2 = LocalContext.current
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0A1628).copy(alpha = 0.72f))
+                .clickable { showLogoutDialog = false },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 28.dp)
+                    .scale(popupScale)
+                    .shadow(
+                        elevation = 32.dp,
+                        shape = RoundedCornerShape(28.dp),
+                        ambientColor = Blue500.copy(0.2f),
+                        spotColor = Blue700.copy(0.25f)
+                    )
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(White)
+                    .border(2.dp, Blue100, RoundedCornerShape(28.dp))
+                    .clickable(enabled = false) {}
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                    // Garis biru shimmer di atas
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .background(BtnGrad)
+                    )
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 22.dp)
+                    ) {
+
+                        // ── Beruang bobble + bintang melayang ──────────
+                        Box(
+                            modifier = Modifier.size(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Ring pulse luar
+                            Box(
+                                modifier = Modifier
+                                    .size(118.dp)
+                                    .clip(CircleShape)
+                                    .border(1.5.dp, Blue300.copy(alpha = ringAlpha * 0.35f), CircleShape)
+                            )
+                            // Ring tengah
+                            Box(
+                                modifier = Modifier
+                                    .size(96.dp)
+                                    .clip(CircleShape)
+                                    .border(1.5.dp, Blue100.copy(alpha = ringAlpha * 0.5f), CircleShape)
+                            )
+                            // Lingkaran bg
+                            Box(
+                                modifier = Modifier
+                                    .size(76.dp)
+                                    .clip(CircleShape)
+                                    .background(Blue50)
+                            )
+                            // Beruang bobble
+                            Text(
+                                "🐻",
+                                fontSize = 42.sp,
+                                modifier = Modifier.offset(y = bearBob.dp)
+                            )
+                            // Bintang melayang
+                            Text(
+                                "⭐",
+                                fontSize = 14.sp,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-4).dp, y = 10.dp)
+                                    .alpha(starAlpha1)
+                            )
+                            Text(
+                                "✨",
+                                fontSize = 11.sp,
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .offset(x = 8.dp, y = (-8).dp)
+                                    .alpha(starAlpha2)
+                            )
+                            Text(
+                                "💫",
+                                fontSize = 10.sp,
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .offset(x = 10.dp, y = 14.dp)
+                                    .alpha(starAlpha3)
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text(
+                            "Mau pergi dulu? 🥺",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Blue700,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Beruang akan kangen nunggu kamu balik~",
+                            fontSize = 12.sp,
+                            color = Blue400,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // ── Info box hati berdetak ─────────────────────
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Blue50)
+                                .border(1.5.dp, Blue100, RoundedCornerShape(14.dp))
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                "💙",
+                                fontSize = 20.sp,
+                                modifier = Modifier.scale(heartBeat)
+                            )
+                            Column {
+                                Text(
+                                    "Tabunganmu tetap aman!",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Blue700
+                                )
+                                Text(
+                                    "Data kamu tersimpan rapi, nggak kemana-mana.",
+                                    fontSize = 11.sp,
+                                    color = Blue500,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // ── Status chip ────────────────────────────────
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(BgInput)
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("🪙", fontSize = 15.sp)
+                                Text(
+                                    "Status tabungan",
+                                    fontSize = 12.sp,
+                                    color = Blue600,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Blue500)
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    "Aman tersimpan",
+                                    fontSize = 11.sp,
+                                    color = White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(20.dp))
+
+                        // ── Tombol ─────────────────────────────────────
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+
+                            // Batal
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Blue50)
+                                    .border(1.5.dp, Blue100, RoundedCornerShape(14.dp))
+                                    .clickable { showLogoutDialog = false },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    Text("🌙", fontSize = 14.sp)
+                                    Text(
+                                        "Batal",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Blue600
+                                    )
+                                }
+                            }
+
+                            // Ya, Dadah!
+                            Box(
+                                modifier = Modifier
+                                    .weight(1.5f)
+                                    .height(50.dp)
+                                    .shadow(
+                                        10.dp, RoundedCornerShape(14.dp),
+                                        ambientColor = Blue500.copy(0.35f),
+                                        spotColor = Blue700.copy(0.4f)
+                                    )
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(BtnGrad)
+                                    .clickable {
+                                        showLogoutDialog = false
+                                        val userId = auth2.currentUser?.uid ?: ""
+                                        cancelNotification(context2, userId)
+                                        auth2.signOut()
+                                        (context2 as? ComponentActivity)?.setContent {
+                                            App()
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text("👋", fontSize = 15.sp)
+                                    Text(
+                                        "Ya, Dadah!",
+                                        color = White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1646,7 +1957,8 @@ fun DetailScreen(
     celengan: Celengan,
     onKembali: () -> Unit,
     onDelete: (Celengan) -> Unit,
-    onUpdate: () -> Unit // 🔥 TAMBAH INI
+    onUpdate: () -> Unit,
+    onEdit: () -> Unit
 ) {
     var input    by remember { mutableStateOf("") }
     var coinList by remember { mutableStateOf(listOf<Int>()) }
@@ -1701,17 +2013,39 @@ fun DetailScreen(
                             modifier   = Modifier.weight(1f).padding(horizontal = 12.dp),
                             textAlign  = TextAlign.Center
                         )
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(White.copy(0.18f))
-                                .clickable {
-                                    showDeleteDialog = true // 🔥 trigger popup
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Delete, null, tint = White.copy(0.8f), modifier = Modifier.size(18.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Tombol Edit
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(White.copy(0.18f))
+                                    .clickable { onEdit() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    null,
+                                    tint = White.copy(0.9f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            // Tombol Delete
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(White.copy(0.18f))
+                                    .clickable { showDeleteDialog = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    null,
+                                    tint = White.copy(0.8f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
 
@@ -3668,6 +4002,577 @@ fun TambahScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text("Batal", color = Blue600, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EDIT SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun EditScreen(
+    celengan: Celengan,
+    onSimpan: () -> Unit,
+    onKembali: () -> Unit
+) {
+    var nama         by remember { mutableStateOf(celengan.nama) }
+    var target       by remember { mutableStateOf(celengan.target.toString()) }
+    var nominal      by remember { mutableStateOf(celengan.nominal.toString()) }
+    var jenis        by remember { mutableStateOf(celengan.jenis) }
+    var imageUri     by remember { mutableStateOf<Uri?>(
+        if (!celengan.image.isNullOrEmpty()) Uri.parse(celengan.image) else null
+    ) }
+    var notifAktif   by remember { mutableStateOf(celengan.notifAktif) }
+    var jam          by remember { mutableStateOf(celengan.jamNotif) }
+    var hariTerpilih by remember { mutableStateOf(celengan.hariNotif.toSet()) }
+    var showSimpanDialog by remember { mutableStateOf(false) }
+    val context      = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { imageUri = saveImageToInternalStorage(context, it) }
+    }
+
+    // Animasi pulse untuk popup konfirmasi
+    val infiniteE = rememberInfiniteTransition(label = "editAnim")
+    val bearBobE by infiniteE.animateFloat(
+        initialValue = 0f, targetValue = -8f,
+        animationSpec = infiniteRepeatable(tween(1800, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "bearBobEdit"
+    )
+    val ringAlphaE by infiniteE.animateFloat(
+        initialValue = 0.25f, targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "ringAlphaEdit"
+    )
+    val popupScaleE by animateFloatAsState(
+        targetValue = if (showSimpanDialog) 1f else 0.85f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
+        label = "popupScaleEdit"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BgPage)
+    ) {
+        // ── HEADER ────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = HeaderGrad,
+                    shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+                )
+                .padding(horizontal = 20.dp)
+                .padding(top = 48.dp, bottom = 22.dp)
+        ) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(White.copy(0.18f))
+                            .clickable { onKembali() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.ArrowBack, null, tint = White, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("Edit Celengan", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = White)
+                        Text("Ubah detail tabunganmu", fontSize = 11.sp, color = White.copy(0.72f))
+                    }
+                }
+            }
+        }
+
+        // ── FORM ──────────────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(top = 16.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
+            // Foto picker
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { launcher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (imageUri != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(imageUri),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(TextPrimary.copy(0.28f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .background(White.copy(0.88f)),
+                                    contentAlignment = Alignment.Center
+                                ) { Text("📷", fontSize = 20.sp) }
+                                Spacer(Modifier.height(6.dp))
+                                Text("Ganti Foto", fontSize = 12.sp, color = White, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(Brush.linearGradient(listOf(Blue100, Blue50)))
+                                    .border(
+                                        width = 1.5.dp,
+                                        brush = Brush.linearGradient(listOf(Blue300, Blue100)),
+                                        shape = RoundedCornerShape(18.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.CameraAlt, null, tint = Blue500, modifier = Modifier.size(28.dp))
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Text("Tambah Foto Impian", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Blue500)
+                            Text("Ketuk untuk memilih gambar", fontSize = 11.sp, color = TextSecondary)
+                        }
+                    }
+                }
+            }
+
+            // Detail tabungan
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Detail Tabungan", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Spacer(Modifier.height(14.dp))
+                    OutlinedTextField(
+                        value         = nama,
+                        onValueChange = { nama = it },
+                        label         = { Text("Nama Tabungan") },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Blue500,
+                            focusedLabelColor  = Blue500,
+                            cursorColor        = Blue500
+                        )
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value         = target,
+                        onValueChange = { target = it },
+                        label         = { Text("Target Tabungan") },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        prefix        = { Text("Rp ", color = TextHint) },
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Blue500,
+                            focusedLabelColor  = Blue500,
+                            cursorColor        = Blue500
+                        )
+                    )
+                }
+            }
+
+            // Rencana pengisian
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Rencana Pengisian", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Spacer(Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF1F5F9))
+                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        listOf("Harian", "Mingguan", "Bulanan").forEach { j ->
+                            val dipilih = jenis == j
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (dipilih) Blue500 else Color.Transparent)
+                                    .clickable { jenis = j }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    j,
+                                    fontSize   = 12.sp,
+                                    fontWeight = if (dipilih) FontWeight.SemiBold else FontWeight.Normal,
+                                    color      = if (dipilih) White else TextSecondary
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value         = nominal,
+                        onValueChange = { nominal = it },
+                        label         = { Text("Nominal $jenis") },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        prefix        = { Text("Rp ", color = TextHint) },
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Blue500,
+                            focusedLabelColor  = Blue500,
+                            cursorColor        = Blue500
+                        )
+                    )
+                }
+            }
+
+            // Notifikasi
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Blue50),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Notifications, null, tint = Blue500, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Aktifkan Pengingat", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                Text("Jadwalkan waktu nabung", fontSize = 11.sp, color = TextSecondary)
+                            }
+                        }
+                        Switch(
+                            checked = notifAktif,
+                            onCheckedChange = { notifAktif = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = White,
+                                checkedTrackColor = Blue500
+                            )
+                        )
+                    }
+                    AnimatedVisibility(visible = notifAktif) {
+                        Column {
+                            Spacer(Modifier.height(14.dp))
+                            HorizontalDivider(color = BgSubtle)
+                            Spacer(Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(BgInput)
+                                    .padding(14.dp)
+                                    .clickable {
+                                        val parts = jam.split(":")
+                                        TimePickerDialog(context, { _, h, m ->
+                                            jam = String.format("%02d:%02d", h, m)
+                                        }, parts[0].toInt(), parts[1].toInt(), true).show()
+                                    },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment     = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Waktu Pengingat", fontSize = 11.sp, color = TextSecondary)
+                                    Text(jam, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Blue500)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Blue50),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Edit, null, tint = Blue500, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            Text("Hari Pengingat", fontSize = 12.sp, color = TextSecondary, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.height(10.dp))
+                            val listHari = listOf("Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab")
+                            val fullHari = listOf("Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu")
+                            Row(
+                                modifier              = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                fullHari.forEachIndexed { i, hari ->
+                                    val dipilih = hariTerpilih.contains(hari)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(if (dipilih) Blue500 else BgSubtle)
+                                            .border(if (!dipilih) 1.dp else 0.dp, Blue100, CircleShape)
+                                            .clickable {
+                                                hariTerpilih = if (dipilih) hariTerpilih - hari else hariTerpilih + hari
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            listHari[i],
+                                            fontSize   = 10.sp,
+                                            fontWeight = if (dipilih) FontWeight.SemiBold else FontWeight.Normal,
+                                            color      = if (dipilih) White else TextSecondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Tombol simpan
+            val canSave = nama.isNotEmpty() && (target.toIntOrNull() ?: 0) > 0
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        if (canSave) BtnGrad
+                        else Brush.linearGradient(listOf(BgSubtle, BgSubtle))
+                    )
+                    .clickable(enabled = canSave) {
+                        showSimpanDialog = true
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Simpan Perubahan ✨",
+                    fontSize   = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = if (canSave) White else TextHint
+                )
+            }
+
+            // Batal
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))))
+                    .clickable { onKembali() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Batal", color = Blue600, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            }
+        }
+    }
+
+    // ── POPUP KONFIRMASI SIMPAN ────────────────────────────────────
+    if (showSimpanDialog) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0A1628).copy(alpha = 0.72f))
+                .clickable { showSimpanDialog = false },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 28.dp)
+                    .scale(popupScaleE)
+                    .shadow(
+                        elevation = 32.dp,
+                        shape = RoundedCornerShape(28.dp),
+                        ambientColor = Blue500.copy(0.2f),
+                        spotColor = Blue700.copy(0.25f)
+                    )
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(White)
+                    .border(2.dp, Blue100, RoundedCornerShape(28.dp))
+                    .clickable(enabled = false) {}
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .background(BtnGrad)
+                    )
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 22.dp)
+                    ) {
+
+                        // Beruang bobble
+                        Box(
+                            modifier = Modifier.size(100.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(98.dp)
+                                    .clip(CircleShape)
+                                    .border(1.5.dp, Blue300.copy(alpha = ringAlphaE * 0.35f), CircleShape)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(78.dp)
+                                    .clip(CircleShape)
+                                    .background(Blue50)
+                            )
+                            Text(
+                                "🐻",
+                                fontSize = 38.sp,
+                                modifier = Modifier.offset(y = bearBobE.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text(
+                            "Simpan perubahan? ✏️",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Blue700,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Data celengan akan diperbarui sekarang~",
+                            fontSize = 12.sp,
+                            color = Blue400,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // Preview perubahan
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Blue50)
+                                .border(1.5.dp, Blue100, RoundedCornerShape(14.dp))
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Nama", fontSize = 12.sp, color = Blue400)
+                                Text(nama, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Blue700)
+                            }
+                            HorizontalDivider(color = Blue100)
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Target", fontSize = 12.sp, color = Blue400)
+                                Text(
+                                    "Rp ${"%,d".format(target.toIntOrNull() ?: 0)}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Blue700
+                                )
+                            }
+                            HorizontalDivider(color = Blue100)
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Nominal", fontSize = 12.sp, color = Blue400)
+                                Text(
+                                    "Rp ${"%,d".format(nominal.toIntOrNull() ?: 0)} / ${jenis.lowercase()}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Blue700
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(20.dp))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // Batal
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Blue50)
+                                    .border(1.5.dp, Blue100, RoundedCornerShape(14.dp))
+                                    .clickable { showSimpanDialog = false },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Batal", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Blue600)
+                            }
+
+                            // Simpan
+                            Box(
+                                modifier = Modifier
+                                    .weight(1.5f)
+                                    .height(50.dp)
+                                    .shadow(10.dp, RoundedCornerShape(14.dp),
+                                        ambientColor = Blue500.copy(0.35f),
+                                        spotColor = Blue700.copy(0.4f))
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(BtnGrad)
+                                    .clickable {
+                                        // Simpan semua perubahan ke objek celengan
+                                        celengan.nama      = nama
+                                        celengan.target    = target.toIntOrNull() ?: celengan.target
+                                        celengan.nominal   = nominal.toIntOrNull() ?: celengan.nominal
+                                        celengan.jenis     = jenis
+                                        celengan.image     = imageUri?.toString()
+                                        celengan.notifAktif = notifAktif
+                                        celengan.jamNotif  = jam
+                                        celengan.hariNotif = hariTerpilih.toList()
+
+                                        if (notifAktif) {
+                                            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                                            scheduleNotification(context, jam, userId)
+                                        }
+
+                                        showSimpanDialog = false
+                                        onSimpan()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text("✓", color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("Simpan!", color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
