@@ -65,9 +65,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.example.tabunganapp.ui.theme.TabunganAppTheme
 
-// ═══════════════════════════════════════════════════════════════════
-//  🎨 CLEAN MINIMAL THEME — Palette
-// ═══════════════════════════════════════════════════════════════════
 
 // Backgrounds — bersih, tenang, tidak ada gradasi mencolok
 val BgPage        = Color(0xFFF2F8FD)   // Alice blue — halus & bersih
