@@ -4645,6 +4645,15 @@ fun ProfileScreen(
     var isLoading        by remember { mutableStateOf(false) }
     val context          = LocalContext.current
 
+
+    var profileImageUri  by remember { mutableStateOf<Uri?>(null) }
+
+    val profileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { profileImageUri = saveImageToInternalStorage(context, it) }
+    }
+
     // ── Stats ─────────────────────────────────────────────────────
     val totalTerkumpul = listCelengan.sumOf { it.terkumpul }
     val totalTarget    = listCelengan.sumOf { it.target }
@@ -4708,10 +4717,57 @@ fun ProfileScreen(
                             Box(Modifier.size(108.dp).clip(CircleShape).border(2.dp, White.copy(ringAlpha * 0.4f), CircleShape))
                             Box(Modifier.size(88.dp).clip(CircleShape).border(1.5.dp, White.copy(ringAlpha * 0.25f), CircleShape))
                             Box(
-                                modifier = Modifier.size(74.dp).clip(CircleShape)
-                                    .background(Blue100).border(3.dp, White.copy(0.78f), CircleShape),
+                                modifier = Modifier
+                                    .size(74.dp)
+                                    .clip(CircleShape)
+                                    .background(Blue100)
+                                    .border(3.dp, White.copy(0.78f), CircleShape)
+                                    .clickable { profileLauncher.launch("image/*") },
                                 contentAlignment = Alignment.Center
-                            ) { Text("🐻", fontSize = 36.sp, modifier = Modifier.offset(y = bearBob.dp)) }
+                            ) {
+                                if (profileImageUri != null) {
+                                    Image(
+                                        painter = rememberAsyncImagePainter(profileImageUri),
+                                        contentDescription = "foto profil",
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    // overlay kamera kecil
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .align(Alignment.BottomEnd)
+                                            .clip(CircleShape)
+                                            .background(White),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.CameraAlt,
+                                            contentDescription = null,
+                                            tint = Blue500,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+                                } else {
+                                    Text("🐻", fontSize = 36.sp, modifier = Modifier.offset(y = bearBob.dp))
+                                    // overlay kamera kecil
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .align(Alignment.BottomEnd)
+                                            .clip(CircleShape)
+                                            .background(White),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.CameraAlt,
+                                            contentDescription = null,
+                                            tint = Blue500,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                         Spacer(Modifier.height(10.dp))
                         Text(displayName, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = White)
