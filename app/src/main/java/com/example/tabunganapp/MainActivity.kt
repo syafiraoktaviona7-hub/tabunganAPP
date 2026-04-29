@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -126,6 +127,14 @@ data class Transaksi(
     val tipe: String = "MASUK",
     val keterangan: String = ""
 )
+data class BadgeData(
+    val icon: String,
+    val label: String,
+    val desc: String,
+    val earned: Boolean
+)
+
+
 
 // ═══════════════════════════════════════════════════════════════════
 //  ACTIVITY
@@ -261,9 +270,11 @@ fun App() {
                     screen = "login"
                 }
             }
-            "home"   -> HomeScreen(listCelengan, onTambah = { screen = "tambah" }) {
-                selected = it; screen = "detail"
-            }
+            "home"   -> HomeScreen(
+                list     = listCelengan,
+                onTambah = { screen = "tambah" },
+                onProfil = { screen = "profil" }
+            ) { selected = it; screen = "detail" }
             "tambah" -> TambahScreen(
                 onSimpan  = { listCelengan = (listCelengan + it).toMutableList(); screen = "home" },
                 onKembali = { screen = "home" }
@@ -300,6 +311,16 @@ fun App() {
             "register" -> RegisterScreen(
                 onRegisterSuccess = { screen = "home" },
                 onGoLogin = { screen = "login" }
+            )
+            "profil" -> ProfileScreen(
+                listCelengan = listCelengan,
+                onKembali    = { screen = "home" },
+                onLogout     = {
+                    val userId = auth.currentUser?.uid ?: ""
+                    cancelNotification(context, userId)
+                    auth.signOut()
+                    screen = "login"
+                }
             )
         }
     }
@@ -1191,6 +1212,7 @@ fun SplashScreen(onFinish: () -> Unit) {
 fun HomeScreen(
     list: List<Celengan>,
     onTambah: () -> Unit,
+    onProfil: () -> Unit,
     onClickItem: (Celengan) -> Unit
 ) {
     var selectedTab    by remember { mutableStateOf(0) }
@@ -1260,6 +1282,20 @@ fun HomeScreen(
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
+
+                            // Tombol Profil — baru
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(White.copy(alpha = 0.18f))
+                                    .clickable { onProfil() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("👤", fontSize = 17.sp)
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             Badge(
                                 text      = "${list.size} Aktif",
@@ -4578,6 +4614,697 @@ fun EditScreen(
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  PROFILE SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun ProfileScreen(
+    listCelengan: List<Celengan>,
+    onKembali: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val auth        = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+    val email       = currentUser?.email ?: "user@wishpay.app"
+
+    var displayName by remember {
+        mutableStateOf(
+            currentUser?.displayName?.ifEmpty { null } ?: email.substringBefore("@")
+        )
+    }
+
+    val joinedDate = remember {
+        val ts = currentUser?.metadata?.creationTimestamp ?: 0L
+        if (ts > 0L) java.text.SimpleDateFormat("MMMM yyyy", Locale("id"))
+            .format(java.util.Date(ts)) else "—"
+    }
+
+    var selectedTab      by remember { mutableStateOf(0) }
+    var showEditName     by remember { mutableStateOf(false) }
+    var showPassword     by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var editNameValue    by remember { mutableStateOf(displayName) }
+    var newPassword      by remember { mutableStateOf("") }
+    var confirmPassword  by remember { mutableStateOf("") }
+    var showPwText       by remember { mutableStateOf(false) }
+    var isLoading        by remember { mutableStateOf(false) }
+    val context          = LocalContext.current
+
+    // ── Stats ─────────────────────────────────────────────────────
+    val totalTerkumpul = listCelengan.sumOf { it.terkumpul }
+    val totalTarget    = listCelengan.sumOf { it.target }
+    val totalAktif     = listCelengan.count { it.terkumpul < it.target }
+    val totalTercapai  = listCelengan.count { it.terkumpul >= it.target }
+    val overallProg    = if (totalTarget > 0) (totalTerkumpul.toFloat() / totalTarget).coerceIn(0f, 1f) else 0f
+    val totalTrx       = listCelengan.sumOf { it.riwayat.size }
+    val notifCount     = listCelengan.count { it.notifAktif }
+
+    // ── Badges ────────────────────────────────────────────────────
+    val badges = listOf(
+        BadgeData("⭐", "Pemula",    "Buat celengan pertama",          listCelengan.isNotEmpty()),
+        BadgeData("🔥", "Rajin",     "7 transaksi (${totalTrx}/7)",    totalTrx >= 7),
+        BadgeData("💎", "Konsisten", "30 transaksi (${totalTrx}/30)",  totalTrx >= 30),
+        BadgeData("🏆", "Pemenang",  "Target tercapai",                totalTercapai >= 1),
+        BadgeData("🪙", "Kolektor",  "5 celengan (${listCelengan.size}/5)", listCelengan.size >= 5),
+        BadgeData("👑", "Sultan",    "Rp 10jt total",                  totalTerkumpul >= 10_000_000)
+    )
+    val badgeEarned = badges.count { it.earned }
+
+    // ── Animations ────────────────────────────────────────────────
+    val infinite  = rememberInfiniteTransition(label = "profil")
+    val bearBob   by infinite.animateFloat(0f, -8f,
+        infiniteRepeatable(tween(2500, easing = EaseInOutSine), RepeatMode.Reverse), label = "pBear")
+    val ringAlpha by infinite.animateFloat(0.15f, 0.55f,
+        infiniteRepeatable(tween(2000, easing = EaseInOutSine), RepeatMode.Reverse), label = "pRing")
+
+    Box(Modifier.fillMaxSize().background(BgPage)) {
+
+        Column(Modifier.fillMaxSize()) {
+
+            // ── HEADER ────────────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(brush = HeaderGrad, shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 48.dp, bottom = 36.dp)
+            ) {
+                Column {
+                    // Nav bar
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(40.dp).clip(CircleShape)
+                                .background(White.copy(0.18f)).clickable { onKembali() },
+                            contentAlignment = Alignment.Center
+                        ) { Icon(Icons.Default.ArrowBack, null, tint = White, modifier = Modifier.size(18.dp)) }
+                        Text("profil saya", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = White.copy(0.92f))
+                        Spacer(Modifier.size(40.dp))
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // Avatar + info
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Box(Modifier.size(110.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(108.dp).clip(CircleShape).border(2.dp, White.copy(ringAlpha * 0.4f), CircleShape))
+                            Box(Modifier.size(88.dp).clip(CircleShape).border(1.5.dp, White.copy(ringAlpha * 0.25f), CircleShape))
+                            Box(
+                                modifier = Modifier.size(74.dp).clip(CircleShape)
+                                    .background(Blue100).border(3.dp, White.copy(0.78f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) { Text("🐻", fontSize = 36.sp, modifier = Modifier.offset(y = bearBob.dp)) }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(displayName, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = White)
+                        Spacer(Modifier.height(2.dp))
+                        Text(email, fontSize = 11.sp, color = White.copy(0.68f))
+                        Spacer(Modifier.height(9.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Badge("$totalAktif aktif",    White.copy(0.17f), White.copy(0.9f))
+                            Badge("$totalTercapai tercapai", White.copy(0.17f), White.copy(0.9f))
+                        }
+                    }
+                }
+            }
+
+            // ── SCROLLABLE CONTENT ────────────────────────────────
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+
+                Spacer(Modifier.height(14.dp))
+
+                // Tab bar
+                Row(
+                    modifier = Modifier.padding(horizontal = 13.dp)
+                        .clip(RoundedCornerShape(10.dp)).background(BgSurface)
+                        .border(0.5.dp, Blue200, RoundedCornerShape(10.dp)).padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    listOf("profil", "statistik", "pencapaian").forEachIndexed { i, lbl ->
+                        val sel = selectedTab == i
+                        Box(
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(7.dp))
+                                .background(if (sel) Blue700 else Color.Transparent)
+                                .clickable { selectedTab = i }.padding(vertical = 7.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(lbl, fontSize = 11.sp,
+                                fontWeight = if (sel) FontWeight.Medium else FontWeight.Normal,
+                                color = if (sel) White else TextSecondary)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(11.dp))
+
+                // ── TAB: PROFIL ───────────────────────────────────
+                if (selectedTab == 0) {
+                    Column(Modifier.padding(horizontal = 13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+                        // Kartu: Akun Saya
+                        Card(
+                            shape  = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(BgSurface),
+                            border = BorderStroke(0.5.dp, Blue200),
+                            elevation = CardDefaults.cardElevation(0.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column {
+                                Text("akun saya", fontSize = 10.sp, color = Blue600,
+                                    fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp,
+                                    modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 7.dp))
+
+                                // Nama tampilan
+                                HorizontalDivider(color = Blue50)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable { showEditName = true }
+                                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Blue50), contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Edit, null, tint = Blue600, modifier = Modifier.size(15.dp))
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("nama tampilan", fontSize = 10.sp, color = TextHint)
+                                        Text(displayName, fontSize = 13.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
+                                    }
+                                    Icon(Icons.Default.ArrowBack, null, tint = Blue200, modifier = Modifier.size(13.dp).rotate(180f))
+                                }
+
+                                // Email
+                                HorizontalDivider(color = Blue50)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Blue50), contentAlignment = Alignment.Center) {
+                                        Text("✉", fontSize = 14.sp)
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("email", fontSize = 10.sp, color = TextHint)
+                                        Text(email, fontSize = 13.sp, color = TextPrimary, fontWeight = FontWeight.Medium,
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+
+                                // Password
+                                HorizontalDivider(color = Blue50)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable { showPassword = true }
+                                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Blue50), contentAlignment = Alignment.Center) {
+                                        Text("🔒", fontSize = 14.sp)
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("password", fontSize = 10.sp, color = TextHint)
+                                        Text("••••••••", fontSize = 13.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
+                                    }
+                                    Icon(Icons.Default.ArrowBack, null, tint = Blue200, modifier = Modifier.size(13.dp).rotate(180f))
+                                }
+                            }
+                        }
+
+                        // Kartu: Pengaturan
+                        Card(
+                            shape  = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(BgSurface),
+                            border = BorderStroke(0.5.dp, Blue200),
+                            elevation = CardDefaults.cardElevation(0.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column {
+                                Text("pengaturan", fontSize = 10.sp, color = Blue600,
+                                    fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp,
+                                    modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 7.dp))
+
+                                // Notifikasi
+                                HorizontalDivider(color = Blue50)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(GreenBg), contentAlignment = Alignment.Center) {
+                                        Text("🔔", fontSize = 14.sp)
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("notifikasi harian", fontSize = 10.sp, color = TextHint)
+                                        Text(
+                                            if (notifCount > 0) "$notifCount celengan aktif" else "tidak aktif",
+                                            fontSize = 13.sp, color = TextPrimary, fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                    // Toggle visual
+                                    Box(
+                                        modifier = Modifier.width(38.dp).height(22.dp)
+                                            .clip(RoundedCornerShape(22.dp))
+                                            .background(if (notifCount > 0) Blue500 else Blue100)
+                                            .padding(3.dp),
+                                        contentAlignment = if (notifCount > 0) Alignment.CenterEnd else Alignment.CenterStart
+                                    ) {
+                                        Box(Modifier.size(16.dp).clip(CircleShape).background(White))
+                                    }
+                                }
+
+                                // Bergabung sejak
+                                HorizontalDivider(color = Blue50)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Blue50), contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.CalendarToday, null, tint = Blue500, modifier = Modifier.size(15.dp))
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("bergabung sejak", fontSize = 10.sp, color = TextHint)
+                                        Text(joinedDate, fontSize = 13.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Kartu: Logout
+                        Card(
+                            shape  = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(BgSurface),
+                            border = BorderStroke(0.5.dp, Color(0xFFFFCDD2)),
+                            elevation = CardDefaults.cardElevation(0.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { showLogoutDialog = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color(0xFFFFEBEE)), contentAlignment = Alignment.Center) {
+                                    Text("🚪", fontSize = 14.sp)
+                                }
+                                Text("logout", fontSize = 13.sp, color = RedSoft, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.ArrowBack, null, tint = Color(0xFFFFCDD2), modifier = Modifier.size(13.dp).rotate(180f))
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+                    }
+                }
+
+                // ── TAB: STATISTIK ────────────────────────────────
+                if (selectedTab == 1) {
+                    Column(Modifier.padding(horizontal = 13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+                        // Ringkasan
+                        Card(
+                            shape  = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(BgSurface),
+                            border = BorderStroke(0.5.dp, Blue200),
+                            elevation = CardDefaults.cardElevation(0.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(13.dp)) {
+                                Text("ringkasan tabungan", fontSize = 10.sp, color = Blue600,
+                                    fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
+                                Spacer(Modifier.height(11.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(Blue50).padding(10.dp)) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                            Text(
+                                                if (totalTerkumpul >= 1_000_000) "Rp ${String.format("%.1f", totalTerkumpul / 1_000_000f)}jt"
+                                                else "Rp ${"%,d".format(totalTerkumpul)}",
+                                                fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Blue800
+                                            )
+                                            Text("terkumpul", fontSize = 10.sp, color = Blue500)
+                                        }
+                                    }
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(GreenBg).padding(10.dp)) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                            Text(
+                                                if (totalTarget >= 1_000_000) "Rp ${String.format("%.1f", totalTarget / 1_000_000f)}jt"
+                                                else "Rp ${"%,d".format(totalTarget)}",
+                                                fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF27500A)
+                                            )
+                                            Text("total target", fontSize = 10.sp, color = Color(0xFF3B6D11))
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(12.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("progress keseluruhan", fontSize = 10.sp, color = TextSecondary)
+                                    Text("${(overallProg * 100).toInt()}%", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Blue600)
+                                }
+                                Spacer(Modifier.height(5.dp))
+                                CleanProgressBar(overallProg, Modifier.fillMaxWidth())
+                            }
+                        }
+
+                        // Per celengan
+                        if (listCelengan.isNotEmpty()) {
+                            Card(
+                                shape  = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(BgSurface),
+                                border = BorderStroke(0.5.dp, Blue200),
+                                elevation = CardDefaults.cardElevation(0.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(Modifier.padding(13.dp)) {
+                                    Text("per celengan", fontSize = 10.sp, color = Blue600,
+                                        fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
+                                    Spacer(Modifier.height(11.dp))
+                                    val barColors = listOf(Blue500, GreenSoft, OrangeSoft, RedSoft, Blue300)
+                                    listCelengan.take(5).forEachIndexed { i, cel ->
+                                        val p   = if (cel.target > 0) (cel.terkumpul.toFloat() / cel.target).coerceIn(0f, 1f) else 0f
+                                        val col = barColors[i % barColors.size]
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(cel.nama, fontSize = 10.sp, color = TextSecondary,
+                                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("${(p * 100).toInt()}%", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = col)
+                                        }
+                                        Spacer(Modifier.height(4.dp))
+                                        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(20.dp)).background(Blue50)) {
+                                            val animP by animateFloatAsState(p, tween(700, i * 120), label = "sp$i")
+                                            Box(Modifier.fillMaxHeight().fillMaxWidth(animP).clip(RoundedCornerShape(20.dp)).background(col))
+                                        }
+                                        if (i < listCelengan.take(5).lastIndex) Spacer(Modifier.height(10.dp))
+                                    }
+                                }
+                            }
+                        }
+
+                        // Statistik umum
+                        Card(
+                            shape  = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(BgSurface),
+                            border = BorderStroke(0.5.dp, Blue200),
+                            elevation = CardDefaults.cardElevation(0.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(13.dp)) {
+                                Text("statistik umum", fontSize = 10.sp, color = Blue600,
+                                    fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
+                                Spacer(Modifier.height(11.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    listOf(
+                                        Triple("$totalTrx",     "transaksi",  BgInput),
+                                        Triple("$totalAktif",   "berjalan",   BgInput),
+                                        Triple("$totalTercapai","tercapai",   GreenBg)
+                                    ).forEach { (v, lbl, bg) ->
+                                        Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(bg).padding(10.dp)) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                                Text(v,   fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                                                    color = if (bg == GreenBg) GreenSoft else Blue700)
+                                                Text(lbl, fontSize = 10.sp,
+                                                    color = if (bg == GreenBg) GreenSoft.copy(0.7f) else TextSecondary)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+                    }
+                }
+
+                // ── TAB: PENCAPAIAN ───────────────────────────────
+                if (selectedTab == 2) {
+                    Column(Modifier.padding(horizontal = 13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+                        Card(
+                            shape  = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(BgSurface),
+                            border = BorderStroke(0.5.dp, Blue200),
+                            elevation = CardDefaults.cardElevation(0.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(13.dp)) {
+                                Text("pencapaianmu", fontSize = 10.sp, color = Blue600,
+                                    fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
+                                Spacer(Modifier.height(11.dp))
+                                badges.chunked(2).forEachIndexed { rowIdx, rowBadges ->
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                                        rowBadges.forEach { badge ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(if (badge.earned) Blue50 else Color(0xFFF5F5F5))
+                                                    .border(0.5.dp,
+                                                        if (badge.earned) Blue200 else Color(0xFFE0E0E0),
+                                                        RoundedCornerShape(10.dp))
+                                                    .padding(11.dp)
+                                            ) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                                    Text(badge.icon, fontSize = 20.sp,
+                                                        color = if (badge.earned) Blue700 else Color(0xFFB0BEC5))
+                                                    Spacer(Modifier.height(4.dp))
+                                                    Text(badge.label, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                                                        color = if (badge.earned) Blue800 else Color(0xFF90A4AE))
+                                                    Text(badge.desc, fontSize = 9.sp, textAlign = TextAlign.Center,
+                                                        color = if (badge.earned) Blue500 else Color(0xFFB0BEC5))
+                                                    Spacer(Modifier.height(4.dp))
+                                                    Text(
+                                                        if (badge.earned) "✓ terbuka" else "terkunci",
+                                                        fontSize = 9.sp,
+                                                        color = if (badge.earned) GreenSoft else Color(0xFFBDBDBD)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        if (rowBadges.size == 1) Spacer(Modifier.weight(1f))
+                                    }
+                                    if (rowIdx < badges.chunked(2).lastIndex) Spacer(Modifier.height(9.dp))
+                                }
+                            }
+                        }
+
+                        // Progress pencapaian
+                        Box(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Blue50).padding(12.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                Text("$badgeEarned / ${badges.size}", fontSize = 19.sp, fontWeight = FontWeight.Medium, color = Blue800)
+                                Text("pencapaian terbuka", fontSize = 11.sp, color = Blue500)
+                                Spacer(Modifier.height(8.dp))
+                                CleanProgressBar(badgeEarned.toFloat() / badges.size, Modifier.fillMaxWidth())
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+                    }
+                }
+            }
+        }
+
+        // ── POPUP: Edit Nama ──────────────────────────────────────────
+        if (showEditName) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0xFF0A1628).copy(0.72f))
+                    .clickable { showEditName = false },
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(BgSurface),
+                    modifier = Modifier.padding(24.dp).fillMaxWidth().clickable(enabled = false) {}
+                ) {
+                    Column(Modifier.padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("✏️ Edit Nama", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Blue700)
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = editNameValue, onValueChange = { editNameValue = it },
+                            label = { Text("Nama Tampilan") },
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Blue500, focusedLabelColor = Blue500, cursorColor = Blue500)
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(
+                                modifier = Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(12.dp))
+                                    .background(Blue50).border(1.dp, Blue100, RoundedCornerShape(12.dp))
+                                    .clickable { showEditName = false },
+                                contentAlignment = Alignment.Center
+                            ) { Text("Batal", fontSize = 13.sp, color = Blue600, fontWeight = FontWeight.SemiBold) }
+                            Box(
+                                modifier = Modifier.weight(1.5f).height(48.dp).clip(RoundedCornerShape(12.dp))
+                                    .background(BtnGrad).clickable {
+                                        if (editNameValue.isNotEmpty()) {
+                                            isLoading = true
+                                            val updates = com.google.firebase.auth.UserProfileChangeRequest
+                                                .Builder().setDisplayName(editNameValue).build()
+                                            currentUser?.updateProfile(updates)
+                                                ?.addOnSuccessListener {
+                                                    isLoading = false
+                                                    displayName = editNameValue
+                                                    showEditName = false
+                                                    Toast.makeText(context, "Nama berhasil diubah 🎉", Toast.LENGTH_SHORT).show()
+                                                }
+                                                ?.addOnFailureListener {
+                                                    isLoading = false
+                                                    Toast.makeText(context, "Gagal ubah nama 😢", Toast.LENGTH_SHORT).show()
+                                                }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isLoading) CircularProgressIndicator(color = White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                else Text("Simpan ✓", fontSize = 13.sp, color = White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── POPUP: Ganti Password ─────────────────────────────────────
+        if (showPassword) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0xFF0A1628).copy(0.72f))
+                    .clickable { showPassword = false; newPassword = ""; confirmPassword = "" },
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(BgSurface),
+                    modifier = Modifier.padding(24.dp).fillMaxWidth().clickable(enabled = false) {}
+                ) {
+                    Column(Modifier.padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🔒 Ganti Password", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Blue700)
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = newPassword, onValueChange = { newPassword = it },
+                            label = { Text("Password Baru") },
+                            visualTransformation = if (showPwText) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { showPwText = !showPwText }) {
+                                    Icon(Icons.Default.Visibility, null,
+                                        tint = if (showPwText) Blue500 else Blue200, modifier = Modifier.size(18.dp))
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Blue500, focusedLabelColor = Blue500, cursorColor = Blue500)
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = confirmPassword, onValueChange = { confirmPassword = it },
+                            label = { Text("Konfirmasi Password") },
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Blue500, focusedLabelColor = Blue500, cursorColor = Blue500)
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(
+                                modifier = Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(12.dp))
+                                    .background(Blue50).border(1.dp, Blue100, RoundedCornerShape(12.dp))
+                                    .clickable { showPassword = false; newPassword = ""; confirmPassword = "" },
+                                contentAlignment = Alignment.Center
+                            ) { Text("Batal", fontSize = 13.sp, color = Blue600, fontWeight = FontWeight.SemiBold) }
+                            Box(
+                                modifier = Modifier.weight(1.5f).height(48.dp).clip(RoundedCornerShape(12.dp))
+                                    .background(BtnGrad).clickable {
+                                        when {
+                                            newPassword.length < 6 ->
+                                                Toast.makeText(context, "Min 6 karakter 🔑", Toast.LENGTH_SHORT).show()
+                                            newPassword != confirmPassword ->
+                                                Toast.makeText(context, "Password tidak sama 😢", Toast.LENGTH_SHORT).show()
+                                            else -> {
+                                                isLoading = true
+                                                currentUser?.updatePassword(newPassword)
+                                                    ?.addOnSuccessListener {
+                                                        isLoading = false
+                                                        newPassword = ""; confirmPassword = ""
+                                                        showPassword = false
+                                                        Toast.makeText(context, "Password berhasil diubah 🎉", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                    ?.addOnFailureListener {
+                                                        isLoading = false
+                                                        Toast.makeText(context, "Gagal. Coba re-login dulu 😢", Toast.LENGTH_SHORT).show()
+                                                    }
+                                            }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isLoading) CircularProgressIndicator(color = White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                else Text("Simpan ✓", fontSize = 13.sp, color = White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── POPUP: Logout ─────────────────────────────────────────────
+        if (showLogoutDialog) {
+            val popupScale by animateFloatAsState(
+                if (showLogoutDialog) 1f else 0.85f,
+                spring(dampingRatio = 0.55f, stiffness = 400f), label = "logoutScaleP"
+            )
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0xFF0A1628).copy(0.72f))
+                    .clickable { showLogoutDialog = false },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier.padding(28.dp).scale(popupScale)
+                        .shadow(32.dp, RoundedCornerShape(28.dp),
+                            ambientColor = Blue500.copy(0.2f), spotColor = Blue700.copy(0.25f))
+                        .clip(RoundedCornerShape(28.dp)).background(White)
+                        .border(2.dp, Blue100, RoundedCornerShape(28.dp))
+                        .clickable(enabled = false) {}
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.fillMaxWidth().height(5.dp).background(BtnGrad))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(22.dp)) {
+                            Text("🐻", fontSize = 42.sp)
+                            Spacer(Modifier.height(10.dp))
+                            Text("Mau pergi dulu? 🥺", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                                color = Blue700, textAlign = TextAlign.Center)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Beruang akan kangen nunggu kamu balik~",
+                                fontSize = 12.sp, color = Blue400, textAlign = TextAlign.Center)
+                            Spacer(Modifier.height(20.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Box(
+                                    modifier = Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(14.dp))
+                                        .background(Blue50).border(1.5.dp, Blue100, RoundedCornerShape(14.dp))
+                                        .clickable { showLogoutDialog = false },
+                                    contentAlignment = Alignment.Center
+                                ) { Text("Batal", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Blue600) }
+                                Box(
+                                    modifier = Modifier.weight(1.5f).height(50.dp)
+                                        .shadow(10.dp, RoundedCornerShape(14.dp),
+                                            ambientColor = Blue500.copy(0.35f), spotColor = Blue700.copy(0.4f))
+                                        .clip(RoundedCornerShape(14.dp)).background(BtnGrad)
+                                        .clickable { showLogoutDialog = false; onLogout() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("👋", fontSize = 15.sp)
+                                        Text("Ya, Dadah!", color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 fun saveImageToInternalStorage(context: Context, uri: Uri): Uri {
     val inputStream = context.contentResolver.openInputStream(uri)
         ?: throw Exception("Gagal buka gambar")
