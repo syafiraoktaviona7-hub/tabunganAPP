@@ -64,8 +64,13 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("io.coil-kt:coil-compose:2.4.0")
 
-    // 🔥 FIREBASE AUTH
-    implementation("com.google.firebase:firebase-auth-ktx:22.3.0")
+    // 🔥 FIREBASE — semua pakai BOM supaya versi otomatis konsisten
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+
+    // Coroutines support untuk Firebase & Firestore
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // Testing
     testImplementation(libs.junit)

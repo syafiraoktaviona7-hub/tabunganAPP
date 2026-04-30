@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -222,11 +223,8 @@ fun App() {
 
     val userId = currentUser?.uid ?: ""
 
-    var screen by remember {
-        mutableStateOf(
-            "splash"
-        )
-    }
+    var screen by remember { mutableStateOf("splash") }
+    var currentNav by remember { mutableStateOf("home") }
 
 
     var selected     by remember { mutableStateOf<Celengan?>(null) }
@@ -237,21 +235,29 @@ fun App() {
     }
 
     val context = LocalContext.current
-    val dataStore = DataStoreManager(context)
+    val scope = rememberCoroutineScope()
 
-    // LOAD
+// LOAD dari Firestore
     LaunchedEffect(userId) {
-        if (userId.isNotEmpty()) {
-            listCelengan = dataStore.loadCelengan(userId).toMutableList()
+        try {
+            if (userId.isNotEmpty()) {
+                listCelengan = FirestoreManager.loadCelengan(userId).toMutableList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
+// SAVE ke Firestore
     LaunchedEffect(listCelengan, userId) {
-        if (userId.isNotEmpty()) {
-            dataStore.saveCelengan(userId, listCelengan)
+        try {
+            if (userId.isNotEmpty()) {
+                FirestoreManager.saveCelengan(userId, listCelengan)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
-
     AnimatedContent(
         targetState = screen,
         transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(200)) },
@@ -265,55 +271,59 @@ fun App() {
                     screen = "login"
                 }
             }
-            "home"   -> HomeScreen(
-                list     = listCelengan,
-                onTambah = { screen = "tambah" },
-                onProfil = { screen = "profil" }
-            ) { selected = it; screen = "detail" }
+            "home" -> MainScreen(
+                currentNav   = currentNav,
+                onNavChange  = { currentNav = it },
+                list         = listCelengan,
+                onTambah     = { screen = "tambah" },
+                onProfil     = { screen = "profil" },
+                onClickItem  = { selected = it; screen = "detail" },
+                onLogout     = {
+                    val uid = auth.currentUser?.uid ?: ""
+                    cancelNotification(context, uid)
+                    auth.signOut()
+                    screen = "login"
+                }
+            )
             "tambah" -> TambahScreen(
                 onSimpan  = { listCelengan = (listCelengan + it).toMutableList(); screen = "home" },
                 onKembali = { screen = "home" }
             )
             "detail" -> selected?.let {
                 DetailScreen(
-                    celengan = it,
-                    onUpdate = { updateList() },
+                    celengan  = it,
+                    onUpdate  = { updateList() },
                     onKembali = { screen = "home" },
-                    onDelete = { cel ->
+                    onDelete  = { cel ->
                         listCelengan = listCelengan.filter { it != cel }.toMutableList()
                         screen = "home"
                     },
                     onEdit = { screen = "edit" }
                 )
             }
-
             "edit" -> selected?.let {
                 EditScreen(
-                    celengan = it,
-                    onSimpan = {
-                        updateList()
-                        screen = "detail"
-                    },
+                    celengan  = it,
+                    onSimpan  = { updateList(); screen = "detail" },
                     onKembali = { screen = "detail" }
                 )
             }
-
             "login" -> LoginScreen(
                 onLoginSuccess = { screen = "home" },
-                onGoRegister = { screen = "register" }
+                onGoRegister   = { screen = "register" }
             )
-
             "register" -> RegisterScreen(
                 onRegisterSuccess = { screen = "home" },
-                onGoLogin = { screen = "login" }
+                onGoLogin         = { screen = "login" }
             )
             "profil" -> ProfileScreen(
                 listCelengan = listCelengan,
                 onKembali    = { screen = "home" },
                 onLogout     = {
-                    val userId = auth.currentUser?.uid ?: ""
-                    cancelNotification(context, userId)
+                    val uid = auth.currentUser?.uid ?: ""
+                    cancelNotification(context, uid)
                     auth.signOut()
+                    listCelengan = mutableListOf()
                     screen = "login"
                 }
             )
@@ -1194,6 +1204,545 @@ fun SplashScreen(onFinish: () -> Unit) {
                             .background(dotColors[i])
                     )
                 }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MAIN SCREEN — wrapper dengan bottom navigation
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun MainScreen(
+    currentNav: String,
+    onNavChange: (String) -> Unit,
+    list: List<Celengan>,
+    onTambah: () -> Unit,
+    onProfil: () -> Unit,
+    onClickItem: (Celengan) -> Unit,
+    onLogout: () -> Unit
+) {
+    Scaffold(
+        bottomBar = {
+            WishPayBottomNav(
+                currentNav = currentNav,
+                onNavChange = onNavChange,
+                onTambah = onTambah,
+                onProfil = onProfil
+            )
+        },
+        containerColor = BgPage
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when (currentNav) {
+                "home"      -> HomeScreenContent(list = list, onClickItem = onClickItem)
+                "statistik" -> StatistikScreen(list = list)
+                "aktivitas" -> AktivitasScreen(list = list)
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BOTTOM NAV BAR
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun WishPayBottomNav(
+    currentNav: String,
+    onNavChange: (String) -> Unit,
+    onTambah: () -> Unit,
+    onProfil: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(White)
+            .border(BorderStroke(0.5.dp, Blue100), shape = RoundedCornerShape(0.dp))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .padding(top = 8.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Beranda
+            NavItem(
+                icon = {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        tint = if (currentNav == "home") Blue700 else TextHint,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                iconVector = Icons.Default.ArrowBack,
+                label = "Beranda",
+                isActive = currentNav == "home",
+                customIcon = {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = null,
+                        tint = if (currentNav == "home") Blue700 else TextHint,
+                        modifier = Modifier.size(20.dp).rotate(0f)
+                    )
+                },
+                svgPath = "home",
+                onClick = { onNavChange("home") }
+            )
+
+            // Statistik
+            NavItem(
+                label = "Statistik",
+                isActive = currentNav == "statistik",
+                svgPath = "statistik",
+                onClick = { onNavChange("statistik") }
+            )
+
+            // Tombol + di tengah
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .shadow(6.dp, CircleShape, ambientColor = Blue500.copy(0.3f), spotColor = Blue700.copy(0.3f))
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(Blue700, Blue500)))
+                        .clickable { onTambah() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        tint = White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(Modifier.height(3.dp))
+                Text("Tambah", fontSize = 10.sp, color = TextHint)
+            }
+
+            // Aktivitas
+            NavItem(
+                label = "Aktivitas",
+                isActive = currentNav == "aktivitas",
+                svgPath = "aktivitas",
+                onClick = { onNavChange("aktivitas") }
+            )
+
+            // Profil
+            NavItem(
+                label = "Profil",
+                isActive = false,
+                svgPath = "profil",
+                onClick = { onProfil() }
+            )
+        }
+    }
+}
+
+@Composable
+fun RowScope.NavItem(
+    label: String,
+    isActive: Boolean,
+    svgPath: String,
+    onClick: () -> Unit,
+    customIcon: (@Composable () -> Unit)? = null,
+    icon: (@Composable () -> Unit)? = null,
+    iconVector: androidx.compose.ui.graphics.vector.ImageVector? = null
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .weight(1f)
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(if (isActive) Blue50 else Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            when (svgPath) {
+                "home" -> Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = null,
+                    tint = if (isActive) Blue700 else TextHint,
+                    modifier = Modifier.size(18.dp)
+                )
+                "statistik" -> Icon(
+                    imageVector = Icons.Default.SwapVert,
+                    contentDescription = null,
+                    tint = if (isActive) Blue700 else TextHint,
+                    modifier = Modifier.size(18.dp)
+                )
+                "aktivitas" -> Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = null,
+                    tint = if (isActive) Blue700 else TextHint,
+                    modifier = Modifier.size(18.dp)
+                )
+                "profil" -> Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = if (isActive) Blue700 else TextHint,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            label,
+            fontSize = 10.sp,
+            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (isActive) Blue700 else TextHint
+        )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HOME SCREEN CONTENT — isi beranda (tanpa FAB & Scaffold)
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun HomeScreenContent(
+    list: List<Celengan>,
+    onClickItem: (Celengan) -> Unit
+) {
+    var selectedTab    by remember { mutableStateOf(0) }
+    val totalTarget     = list.sumOf { it.target }
+    val totalTerkumpul  = list.sumOf { it.terkumpul }
+    val overallProgress = if (totalTarget > 0) (totalTerkumpul.toFloat() / totalTarget).coerceIn(0f, 1f) else 0f
+    val totalTercapai   = list.count { it.terkumpul >= it.target }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // ── HEADER ──────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush = HeaderGrad, shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                .padding(horizontal = 20.dp)
+                .padding(top = 48.dp, bottom = 24.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp))
+                                .background(White.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.logo_wishpay),
+                                contentDescription = "wishPay",
+                                modifier = Modifier.size(30.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text("wishPay", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = White)
+                            Text("Halo, semangat nabung!", fontSize = 11.sp, color = White.copy(0.72f))
+                        }
+                    }
+                    Badge(
+                        text = "${list.size} Aktif",
+                        bgColor = White.copy(alpha = 0.20f),
+                        textColor = White
+                    )
+                }
+                Spacer(Modifier.height(20.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(White.copy(alpha = 0.15f)).padding(14.dp)) {
+                        Column {
+                            Text("Terkumpul", fontSize = 11.sp, color = White.copy(0.75f))
+                            Spacer(Modifier.height(4.dp))
+                            Text("Rp ${"%,d".format(totalTerkumpul)}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = White)
+                        }
+                    }
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(White.copy(alpha = 0.15f)).padding(14.dp)) {
+                        Column {
+                            Text("Target Total", fontSize = 11.sp, color = White.copy(0.75f))
+                            Spacer(Modifier.height(4.dp))
+                            Text("Rp ${"%,d".format(totalTarget)}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = White)
+                        }
+                    }
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(White.copy(alpha = 0.15f)).padding(14.dp)) {
+                        Column {
+                            Text("Tercapai", fontSize = 11.sp, color = White.copy(0.75f))
+                            Spacer(Modifier.height(4.dp))
+                            Text("$totalTercapai", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = White)
+                            Text("celengan", fontSize = 10.sp, color = White.copy(0.7f))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Column {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Progress keseluruhan", fontSize = 11.sp, color = White.copy(0.75f))
+                        Text("${(overallProgress * 100).toInt()}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = White)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(White.copy(0.22f))) {
+                        val animProg by animateFloatAsState(overallProgress, tween(700, easing = EaseOutCubic), label = "hprog")
+                        Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(animProg).clip(RoundedCornerShape(50)).background(White.copy(0.9f)))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(modifier = Modifier.padding(horizontal = 20.dp).clip(RoundedCornerShape(12.dp)).background(BgSubtle).padding(3.dp)) {
+            listOf("Berlangsung", "Tercapai").forEachIndexed { idx, label ->
+                val selected = selectedTab == idx
+                Box(
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) White else Color.Transparent)
+                        .clickable { selectedTab = idx }.padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(label, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) Blue600 else TextSecondary)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        val filteredList = if (selectedTab == 0) list.filter { it.terkumpul < it.target } else list.filter { it.terkumpul >= it.target }
+        if (filteredList.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().background(BgPage), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(modifier = Modifier.size(80.dp).clip(CircleShape).background(BgSubtle), contentAlignment = Alignment.Center) {
+                        Image(painter = painterResource(id = R.drawable.logo_wishpay), contentDescription = null, modifier = Modifier.size(50.dp))
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text(if (selectedTab == 0) "Belum ada tabungan" else "Belum ada yang tercapai", fontSize = 15.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Tap tombol + untuk mulai menabung", fontSize = 13.sp, color = TextSecondary)
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().background(BgPage),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredList) { item -> CelenganCard(item = item, onClick = { onClickItem(item) }) }
+                item { Spacer(Modifier.height(16.dp)) }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  STATISTIK SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun StatistikScreen(list: List<Celengan>) {
+    val totalTerkumpul = list.sumOf { it.terkumpul }
+    val totalTarget    = list.sumOf { it.target }
+    val totalTrx       = list.sumOf { it.riwayat.size }
+    val totalAktif     = list.count { it.terkumpul < it.target }
+    val totalTercapai  = list.count { it.terkumpul >= it.target }
+    val overallProg    = if (totalTarget > 0) (totalTerkumpul.toFloat() / totalTarget).coerceIn(0f, 1f) else 0f
+
+    Column(modifier = Modifier.fillMaxSize().background(BgPage)) {
+        Box(
+            modifier = Modifier.fillMaxWidth()
+                .background(brush = HeaderGrad, shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                .padding(horizontal = 20.dp).padding(top = 48.dp, bottom = 22.dp)
+        ) {
+            Column {
+                Text("Statistik", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = White)
+                Text("Ringkasan tabunganmu", fontSize = 12.sp, color = White.copy(0.72f))
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Summary cards
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(BgSurface)
+                    .border(0.5.dp, Blue100, RoundedCornerShape(14.dp)).padding(14.dp)) {
+                    Column {
+                        Text("Total Terkumpul", fontSize = 11.sp, color = TextSecondary)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (totalTerkumpul >= 1_000_000) "Rp ${String.format("%.1f", totalTerkumpul / 1_000_000f)}jt"
+                            else "Rp ${"%,d".format(totalTerkumpul)}",
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Blue700
+                        )
+                    }
+                }
+                Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(BgSurface)
+                    .border(0.5.dp, Blue100, RoundedCornerShape(14.dp)).padding(14.dp)) {
+                    Column {
+                        Text("Total Target", fontSize = 11.sp, color = TextSecondary)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (totalTarget >= 1_000_000) "Rp ${String.format("%.1f", totalTarget / 1_000_000f)}jt"
+                            else "Rp ${"%,d".format(totalTarget)}",
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary
+                        )
+                    }
+                }
+            }
+            // Progress keseluruhan
+            CleanCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Progress Keseluruhan", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                        Text("${(overallProg * 100).toInt()}%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Blue500)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    CleanProgressBar(overallProg, Modifier.fillMaxWidth())
+                }
+            }
+            // Stats row
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                listOf(
+                    Triple("$totalTrx", "transaksi", BgInput),
+                    Triple("$totalAktif", "berjalan", Blue50),
+                    Triple("$totalTercapai", "tercapai", GreenBg)
+                ).forEach { (v, lbl, bg) ->
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(bg)
+                        .border(0.5.dp, Blue100, RoundedCornerShape(12.dp)).padding(12.dp)) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                            Text(v, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                                color = if (bg == GreenBg) GreenSoft else Blue700)
+                            Text(lbl, fontSize = 10.sp,
+                                color = if (bg == GreenBg) GreenSoft.copy(0.7f) else TextSecondary)
+                        }
+                    }
+                }
+            }
+            // Per celengan
+            if (list.isNotEmpty()) {
+                CleanCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Progress Per Celengan", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                        Spacer(Modifier.height(14.dp))
+                        val barColors = listOf(Blue500, GreenSoft, OrangeSoft, RedSoft, Blue300)
+                        list.forEachIndexed { i, cel ->
+                            val p = if (cel.target > 0) (cel.terkumpul.toFloat() / cel.target).coerceIn(0f, 1f) else 0f
+                            val col = barColors[i % barColors.size]
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text(cel.nama, fontSize = 12.sp, color = TextPrimary, fontWeight = FontWeight.Medium,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(8.dp))
+                                Text("${(p * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = col)
+                            }
+                            Spacer(Modifier.height(5.dp))
+                            Box(Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(20.dp)).background(Blue50)) {
+                                val animP by animateFloatAsState(p, tween(700, i * 120), label = "sp$i")
+                                Box(Modifier.fillMaxHeight().fillMaxWidth(animP).clip(RoundedCornerShape(20.dp)).background(col))
+                            }
+                            if (i < list.lastIndex) Spacer(Modifier.height(12.dp))
+                        }
+                    }
+                }
+            } else {
+                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(BgSurface)
+                    .border(0.5.dp, Blue100, RoundedCornerShape(14.dp)).padding(24.dp),
+                    contentAlignment = Alignment.Center) {
+                    Text("Belum ada celengan", fontSize = 14.sp, color = TextSecondary)
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  AKTIVITAS SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun AktivitasScreen(list: List<Celengan>) {
+    // Gabungkan semua riwayat dari semua celengan, urutkan terbaru
+    val semuaAktivitas = remember(list) {
+        list.flatMap { cel ->
+            cel.riwayat.map { trx -> Triple(cel.nama, trx, cel) }
+        }.sortedByDescending { it.second.tanggal }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(BgPage)) {
+        Box(
+            modifier = Modifier.fillMaxWidth()
+                .background(brush = HeaderGrad, shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                .padding(horizontal = 20.dp).padding(top = 48.dp, bottom = 22.dp)
+        ) {
+            Column {
+                Text("Aktivitas", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = White)
+                Text("Semua aktivitas tabunganmu", fontSize = 12.sp, color = White.copy(0.72f))
+            }
+        }
+
+        if (semuaAktivitas.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().background(BgPage), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(modifier = Modifier.size(80.dp).clip(CircleShape).background(BgSubtle), contentAlignment = Alignment.Center) {
+                        Text("🔔", fontSize = 32.sp)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text("Belum ada aktivitas", fontSize = 15.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Mulai menabung untuk melihat aktivitas", fontSize = 13.sp, color = TextSecondary)
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().background(BgPage),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(semuaAktivitas) { (namaCelengan, trx, _) ->
+                    val isMasuk = trx.tipe == "MASUK"
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(BgSurface)
+                            .border(0.5.dp, if (isMasuk) Blue100 else Color(0xFFFFCDD2), RoundedCornerShape(14.dp))
+                            .padding(14.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(
+                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
+                                    .background(if (isMasuk) Blue50 else Color(0xFFFFEBEE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(if (isMasuk) "🪙" else "💸", fontSize = 18.sp)
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    if (isMasuk) "Menabung — $namaCelengan" else "Pakai Tabungan — $namaCelengan",
+                                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                                )
+                                Text(trx.tanggal, fontSize = 11.sp, color = TextSecondary)
+                            }
+                            Text(
+                                "${if (isMasuk) "+" else "-"}Rp ${"%,d".format(trx.nominal)}",
+                                fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                                color = if (isMasuk) GreenSoft else RedSoft
+                            )
+                        }
+                    }
+                }
+                item { Spacer(Modifier.height(16.dp)) }
             }
         }
     }
@@ -3496,7 +4045,6 @@ fun DetailScreen(
                                             Spacer(Modifier.height(4.dp))
                                             Text(
                                                 value,
-                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (isBlue) Blue500 else TextPrimary
                                             )
@@ -4648,13 +5196,12 @@ fun ProfileScreen(
 
 
     var profileImageUri  by remember { mutableStateOf<Uri?>(null) }
-    val dataStore = DataStoreManager(context)
     val userId2 = currentUser?.uid ?: ""
 
-    // Load foto profil saat pertama buka
+// Load foto profil dari Firestore
     LaunchedEffect(userId2) {
         if (userId2.isNotEmpty()) {
-            val saved = dataStore.loadProfileImage(userId2)
+            val saved = FirestoreManager.loadProfileImage(userId2)
             if (!saved.isNullOrEmpty()) {
                 profileImageUri = Uri.parse(saved)
             }
@@ -4667,9 +5214,9 @@ fun ProfileScreen(
         uri?.let {
             val saved = saveImageToInternalStorage(context, it)
             profileImageUri = saved
-            // Simpan permanen ke DataStore
+            // Simpan ke Firestore
             kotlinx.coroutines.MainScope().launch {
-                dataStore.saveProfileImage(userId2, saved.toString())
+                FirestoreManager.saveProfileImage(userId2, saved.toString())
             }
         }
     }
