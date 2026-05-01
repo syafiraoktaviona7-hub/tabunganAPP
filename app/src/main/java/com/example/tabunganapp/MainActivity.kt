@@ -237,7 +237,7 @@ fun App() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-// LOAD dari Firestore
+
     LaunchedEffect(userId) {
         try {
             if (userId.isNotEmpty()) {
