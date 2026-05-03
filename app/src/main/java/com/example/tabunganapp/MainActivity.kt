@@ -1269,7 +1269,7 @@ fun WishPayBottomNav(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Beranda
+
             NavItem(
                 icon = {
                     Icon(
@@ -1294,7 +1294,7 @@ fun WishPayBottomNav(
                 onClick = { onNavChange("home") }
             )
 
-            // Statistik
+
             NavItem(
                 label = "Statistik",
                 isActive = currentNav == "statistik",
@@ -1302,7 +1302,7 @@ fun WishPayBottomNav(
                 onClick = { onNavChange("statistik") }
             )
 
-            // Tombol + di tengah
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.weight(1f)
@@ -1327,7 +1327,7 @@ fun WishPayBottomNav(
                 Text("Tambah", fontSize = 10.sp, color = TextHint)
             }
 
-            // Aktivitas
+
             NavItem(
                 label = "Aktivitas",
                 isActive = currentNav == "aktivitas",
@@ -1335,7 +1335,7 @@ fun WishPayBottomNav(
                 onClick = { onNavChange("aktivitas") }
             )
 
-            // Profil
+
             NavItem(
                 label = "Profil",
                 isActive = false,
@@ -2672,7 +2672,7 @@ fun DetailScreen(
                 }
             }
 
-            // ── KONTEN SCROLL ─────────────────────────────────────────
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
