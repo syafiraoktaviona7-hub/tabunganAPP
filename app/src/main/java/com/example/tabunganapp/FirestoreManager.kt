@@ -113,6 +113,36 @@ object FirestoreManager {
         }
     }
 
+    // ── KURANGI SALDO saat pakai tabungan ────────────────────────
+    suspend fun kurangiSaldo(
+        userId: String,
+        celenganId: String,
+        jumlah: Int
+    ) {
+        if (userId.isEmpty() || celenganId.isEmpty()) return
+
+        try {
+            val docRef = db
+                .collection("users")
+                .document(userId)
+                .collection("celengan")
+                .document(celenganId)
+
+            val snapshot = docRef.get().await()
+
+            if (snapshot.exists()) {
+                docRef.update(
+                    "terkumpul",
+                    FieldValue.increment(-jumlah.toLong())
+                ).await()
+            } else {
+                println("⚠️ kurangiSaldo: dokumen $celenganId tidak ditemukan")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     // ── TAMBAH RIWAYAT TRANSAKSI ──────────────────────────────────
     suspend fun tambahRiwayat(
         userId: String,
@@ -161,6 +191,7 @@ object FirestoreManager {
                 // Load riwayat
                 val riwayatSnapshot = doc.reference
                     .collection("riwayat")
+                    .orderBy("tanggal", com.google.firebase.firestore.Query.Direction.ASCENDING)
                     .get()
                     .await()
 

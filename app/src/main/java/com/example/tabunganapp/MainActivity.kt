@@ -2928,18 +2928,29 @@ fun DetailScreen(
                                             showTercapaiDialog = true
                                         }
 
-                                        // Simpan ke Firestore di background — dengan try-catch agar tidak crash
+                                        // Simpan ke Firestore di background
                                         if (userId.isNotEmpty() && celengan.id.isNotEmpty()) {
+                                            val trxMasuk = Transaksi(
+                                                tanggal = now,
+                                                nominal = tambah,
+                                                tipe = "MASUK"
+                                            )
                                             scope.launch {
                                                 try {
+                                                    // Update saldo di Firestore
                                                     FirestoreManager.tambahSaldo(
                                                         userId = userId,
                                                         celenganId = celengan.id,
                                                         jumlah = tambah
                                                     )
+                                                    // Simpan riwayat MASUK ke Firestore
+                                                    FirestoreManager.tambahRiwayat(
+                                                        userId = userId,
+                                                        celenganId = celengan.id,
+                                                        trx = trxMasuk
+                                                    )
                                                 } catch (e: Exception) {
                                                     e.printStackTrace()
-                                                    // Tidak crash app, data sudah aman di memory & akan di-save via LaunchedEffect
                                                 }
                                             }
                                         }
@@ -3634,21 +3645,43 @@ fun DetailScreen(
                                         )
                                     )
                                     .clickable {
-                                        celengan.terkumpul -= nominalKeluar
-                                        onUpdate()
+                                        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
+                                        // Update local state dulu
+                                        celengan.terkumpul -= nominalKeluar
                                         val now = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault())
                                             .format(Date())
-                                        celengan.riwayat.add(
-                                            Transaksi(
-                                                tanggal = now,
-                                                nominal = nominalKeluar,
-                                                tipe = "KELUAR"
-                                            )
+                                        val trxKeluar = Transaksi(
+                                            tanggal = now,
+                                            nominal = nominalKeluar,
+                                            tipe = "KELUAR"
                                         )
-
+                                        celengan.riwayat.add(trxKeluar)
+                                        onUpdate()
                                         input = ""
                                         showDialog = false
+
+                                        // Simpan ke Firestore di background
+                                        if (userId.isNotEmpty() && celengan.id.isNotEmpty()) {
+                                            scope.launch {
+                                                try {
+                                                    // Kurangi saldo di Firestore
+                                                    FirestoreManager.kurangiSaldo(
+                                                        userId = userId,
+                                                        celenganId = celengan.id,
+                                                        jumlah = nominalKeluar
+                                                    )
+                                                    // Simpan riwayat KELUAR ke Firestore
+                                                    FirestoreManager.tambahRiwayat(
+                                                        userId = userId,
+                                                        celenganId = celengan.id,
+                                                        trx = trxKeluar
+                                                    )
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                }
+                                            }
+                                        }
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
