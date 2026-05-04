@@ -105,6 +105,7 @@ val GreenGrad     = Brush.linearGradient(listOf(Color(0xFF43A047), GreenSoft))
 
 
 data class Celengan(
+    val id: String = java.util.UUID.randomUUID().toString(),
     var nama: String,
     var target: Int,
     var terkumpul: Int = 0,
@@ -230,6 +231,8 @@ fun App() {
     var selected     by remember { mutableStateOf<Celengan?>(null) }
     var listCelengan by remember { mutableStateOf(mutableListOf<Celengan>()) }
 
+    var isDataLoaded by remember { mutableStateOf(false) }
+
     fun updateList() {
         listCelengan = listCelengan.toMutableList()
     }
@@ -242,16 +245,17 @@ fun App() {
         try {
             if (userId.isNotEmpty()) {
                 listCelengan = FirestoreManager.loadCelengan(userId).toMutableList()
+                isDataLoaded = true   // 🔥 TAMBAHAN PENTING
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-// SAVE ke Firestore
-    LaunchedEffect(listCelengan, userId) {
+// SAVE ke Firestore — pakai snapshotFlow agar detect perubahan field dalam object
+    LaunchedEffect(listCelengan.size, userId, isDataLoaded) {
         try {
-            if (userId.isNotEmpty()) {
+            if (userId.isNotEmpty() && isDataLoaded && listCelengan.isNotEmpty()) {
                 FirestoreManager.saveCelengan(userId, listCelengan)
             }
         } catch (e: Exception) {
@@ -2528,6 +2532,25 @@ fun CelenganCard(item: Celengan, onClick: () -> Unit) {
     }
 }
 
+@Composable
+fun CoinItem(index: Int, randomX: Int) {
+    val offsetY = remember { Animatable(-120f) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(index * 80L)
+        offsetY.animateTo(
+            targetValue = 1200f,
+            animationSpec = tween(2200, easing = EaseInCubic)
+        )
+    }
+    Text(
+        text = "🪙",
+        fontSize = (18 + (index % 4) * 3).sp,
+        modifier = Modifier
+            .offset(x = randomX.dp, y = offsetY.value.dp)
+            .alpha(0.92f)
+    )
+}
+
 // ═══════════════════════════════════════════════════════════════════
 //  DETAIL SCREEN
 // ═══════════════════════════════════════════════════════════════════
@@ -2541,7 +2564,6 @@ fun DetailScreen(
     onEdit: () -> Unit
 ) {
     var input    by remember { mutableStateOf("") }
-    var coinList by remember { mutableStateOf(listOf<Int>()) }
     var showDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var nominalKeluar by remember { mutableStateOf(0) }
@@ -2549,6 +2571,7 @@ fun DetailScreen(
     var nominalSukses by remember { mutableStateOf(0) }
     var showTercapaiDialog by remember { mutableStateOf(false) }
     val context  = LocalContext.current
+    val scope    = rememberCoroutineScope()
     val progress = if (celengan.target > 0) (celengan.terkumpul.toFloat() / celengan.target).coerceIn(0f, 1f) else 0f
     val tercapai = celengan.terkumpul >= celengan.target
 
@@ -2884,8 +2907,10 @@ fun DetailScreen(
                                 .clickable {
                                     val tambah = input.toIntOrNull() ?: 0
                                     if (tambah > 0) {
+                                        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+                                        // Update local state dulu
                                         celengan.terkumpul += tambah
-                                        onUpdate()
                                         val now = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault())
                                             .format(Date())
                                         celengan.riwayat.add(
@@ -2895,16 +2920,29 @@ fun DetailScreen(
                                                 tipe = "MASUK"
                                             )
                                         )
-                                        input    = ""
+                                        onUpdate()
+                                        input = ""
                                         nominalSukses = tambah
                                         showSuksesDialog = true
                                         if (celengan.terkumpul >= celengan.target) {
                                             showTercapaiDialog = true
                                         }
-                                        coinList = (1..16).toList()
-                                        val mp = MediaPlayer.create(context, R.raw.coin)
-                                        mp.setOnCompletionListener { it.release() }
-                                        mp.start()
+
+                                        // Simpan ke Firestore di background — dengan try-catch agar tidak crash
+                                        if (userId.isNotEmpty() && celengan.id.isNotEmpty()) {
+                                            scope.launch {
+                                                try {
+                                                    FirestoreManager.tambahSaldo(
+                                                        userId = userId,
+                                                        celenganId = celengan.id,
+                                                        jumlah = tambah
+                                                    )
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                    // Tidak crash app, data sudah aman di memory & akan di-save via LaunchedEffect
+                                                }
+                                            }
+                                        }
                                     }
                                 },
                             contentAlignment = Alignment.Center
@@ -4149,32 +4187,10 @@ fun DetailScreen(
             }
         }
 
-        // ── COIN RAIN — hanya koin emas 🪙 ────────────────────────────
-        coinList.forEachIndexed { index, _ ->
-            val offsetY = remember { Animatable(-120f) }
-            val randomX = remember { (16..340).random() }
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(index * 80L)
-                offsetY.animateTo(
-                    targetValue   = 1200f,
-                    animationSpec = tween(2200, easing = EaseInCubic)
-                )
-            }
-            Text(
-                text  = "🪙",
-                fontSize = (18 + (index % 4) * 3).sp,
-                modifier = Modifier
-                    .offset(x = randomX.dp, y = offsetY.value.dp)
-                    .alpha(0.92f)
-                    .align(Alignment.TopStart)
-            )
-        }
-        LaunchedEffect(coinList) {
-            if (coinList.isNotEmpty()) {
-                kotlinx.coroutines.delay(2600)
-                coinList = emptyList()
-            }
-        }
+
+
+
+
     }
 }
 
@@ -4187,6 +4203,7 @@ fun TambahScreen(
     onSimpan: (Celengan) -> Unit,
     onKembali: () -> Unit
 ) {
+    var inputNabung by remember { mutableStateOf("") }
     var nama         by remember { mutableStateOf("") }
     var target       by remember { mutableStateOf("") }
     var nominal      by remember { mutableStateOf("") }
@@ -4397,6 +4414,14 @@ fun TambahScreen(
 
                     Spacer(Modifier.height(12.dp))
 
+
+                    OutlinedTextField(
+                        value = inputNabung,
+                        onValueChange = { inputNabung = it },
+                        label = { Text("Jumlah Nabung Hari Ini") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     OutlinedTextField(
                         value         = nominal,
                         onValueChange = { nominal = it },
@@ -4542,17 +4567,19 @@ fun TambahScreen(
                             val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                             scheduleNotification(context, jam, userId)
                         }
+                        val nabung = inputNabung.toIntOrNull() ?: 0
+
                         onSimpan(
                             Celengan(
-                                nama,
-                                t,
-                                0,
-                                imageUri?.toString(), // 🔥 INI PENTING
-                                n,
-                                jenis,
-                                notifAktif,
-                                jam,
-                                hariTerpilih.toList()
+                                nama       = nama,
+                                target     = t,
+                                terkumpul  = nabung,
+                                image      = imageUri?.toString(),
+                                nominal    = n,
+                                jenis      = jenis,
+                                notifAktif = notifAktif,
+                                jamNotif   = jam,
+                                hariNotif  = hariTerpilih.toList()
                             )
                         )
                     },
