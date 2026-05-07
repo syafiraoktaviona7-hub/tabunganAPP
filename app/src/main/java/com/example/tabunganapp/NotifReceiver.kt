@@ -55,5 +55,10 @@ class NotifReceiver : BroadcastReceiver() {
             .build()
 
         manager.notify(System.currentTimeMillis().toInt(), notif)
+
+        // ✅ TAMBAHKAN INI — simpan ke riwayat
+        // Jika kamu pass nama celengan di intent, ambil dari sini:
+        val nama = intent.getStringExtra("CELENGAN_NAMA") ?: ""
+        NotifHistoryManager.save(context, nama)
     }
 }
