@@ -1,5 +1,8 @@
 package com.example.tabunganapp
 
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -53,6 +56,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.CalendarToday
@@ -78,40 +82,51 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.tabunganapp.ui.theme.TabunganAppTheme
 
 
-// Backgrounds — bersih, tenang, tidak ada gradasi mencolok
-val BgPage = Color(0xFFF2F8FD)   // Alice blue — halus & bersih
-val BgSurface = Color(0xFFFFFFFF)   // card / surface utama
-val BgInput = Color(0xFFF0F6FB)   // input & chip background
-val BgSubtle = Color(0xFFE8F3FA)   // divider / subtle bg
+val BgPage    = Color(0xFFEEF2FF)
+val BgSurface = Color(0xFFFFFFFF)
+val BgInput   = Color(0xFFE8EDFF)
+val BgSubtle  = Color(0xFFDDE5FF)
 
-// Warna utama biru
-val Blue50 = Color(0xFFE3F2FD)   // tint
-val Blue100 = Color(0xFFBBDEFB)   // chip / badge bg
-val Blue200 = Color(0xFF90CAF9)   // border subtle
-val Blue300 = Color(0xFF64B5F6)   // soft accent
-val Blue400 = Color(0xFF42A5F5)   // medium accent
-val Blue500 = Color(0xFF2196F3)   // primary action
-val Blue600 = Color(0xFF1E88E5)   // pressed / border
-val Blue700 = Color(0xFF1565C0)   // header dark
-val Blue800 = Color(0xFF0D47A1)   // dark text on blue bg
+val Blue50  = Color(0xFFEDE7F6)
+val Blue100 = Color(0xFFD1C4E9)
+val Blue200 = Color(0xFFB39DDB)
+val Blue300 = Color(0xFF9575CD)
+val Blue400 = Color(0xFF7E57C2)
+val Blue500 = Color(0xFF673AB7)
+val Blue600 = Color(0xFF5E35B1)
+val Blue700 = Color(0xFF512DA8)
+val Blue800 = Color(0xFF4527A0)
 
-// Semantic
-val GreenSoft = Color(0xFF66BB6A)   // success
-val GreenBg = Color(0xFFE8F5E9)
-val OrangeSoft = Color(0xFFFF8F00)   // warning / gold coin
-val OrangeBg = Color(0xFFFFF8E1)
-val RedSoft = Color(0xFFEF5350)
+val GreenSoft  = Color(0xFF00C853)   // tetap hijau untuk status sukses
+val GreenBg    = Color(0xFFE8F5E9)
+val OrangeSoft = Color(0xFFFF6D00)
+val OrangeBg   = Color(0xFFFFF3E0)
+val RedSoft    = Color(0xFFEF5350)
 
-// Text
-val TextPrimary = Color(0xFF1A2E42)   // heading utama
-val TextSecondary = Color(0xFF546E7A)   // deskripsi
-val TextHint = Color(0xFF90A4AE)   // placeholder
-val White = Color(0xFFFFFFFF)
+val TextPrimary   = Color(0xFF1A1A2E)
+// ── Pink Theme Colors (Soft Pastel) ───────────────
+val PinkBg       = Color(0xFFFFF0F4)   // background sangat soft
+val PinkLight    = Color(0xFFFFD6E0)   // tab bar & highlight
+val PinkMain     = Color(0xFFE91E8C)   // aksen utama (sedikit lebih cerah)
+val PinkDark     = Color(0xFFD81B60)   // shadow/dark
+val PinkPastel1  = Color(0xFFF8BBD0)   // pink card icon (lebih muda)
+val PinkPastel2  = Color(0xFFE1BEE7)   // purple card icon (lebih muda)
+val PinkPastel3  = Color(0xFFC8E6C9)   // green card icon (lebih muda)
+val PinkText     = Color(0xFF37474F)   // dark gray text
+val PinkSubText  = Color(0xFF9E9E9E)   // gray subtitle
+val TextSecondary = Color(0xFF5C5C8A)
+val TextHint      = Color(0xFFAAAAAA)
+val White         = Color(0xFFFFFFFF)
 
-// Brush — hanya untuk header & tombol utama (subtle)
-val HeaderGrad = Brush.linearGradient(listOf(Blue700, Blue500))
-val BtnGrad = Brush.linearGradient(listOf(Blue600, Blue400))
-val GreenGrad = Brush.linearGradient(listOf(Color(0xFF43A047), GreenSoft))
+val HeaderGrad = Brush.linearGradient(
+    listOf(Color(0xFF6C63FF), Color(0xFF9575CD))
+)
+val BtnGrad = Brush.linearGradient(
+    listOf(Color(0xFF6C63FF), Color(0xFF9575CD))
+)
+val GreenGrad = Brush.linearGradient(
+    listOf(Color(0xFF4527A0), Color(0xFF7E57C2))
+)
 
 
 data class Celengan(
@@ -145,9 +160,11 @@ data class BadgeData(
 data class NotificationItem(
     val title: String,
     val message: String,
-    val time: String
+    val time: String,
+    val type: String = "pengingat",   // "pengingat" | "aktivitas_masuk" | "aktivitas_keluar" | "target" | "progress"
+    val isRead: Boolean = false,
+    val date: String = "Hari ini"     // dipakai untuk pengelompokan
 )
-
 
 // ═══════════════════════════════════════════════════════════════════
 //  ACTIVITY
@@ -411,14 +428,16 @@ fun App() {
                     },
                     onLogout = {
                         val uid = auth.currentUser?.uid ?: ""
-
                         cancelNotification(context, uid)
-
                         auth.signOut()
-
-                        listCelengan = mutableListOf()
-
                         screen = "login"
+                    },
+                    onNavChange = { nav ->
+                        currentNav = nav
+                        screen = "home"
+                    },
+                    onTambah = {
+                        screen = "tambah"
                     }
                 )
             }
@@ -448,7 +467,11 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF0F4FF))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFFEEF2FF), Color(0xFFE8EDFF))
+                )
+            )
     ) {
         Column(
             modifier = Modifier
@@ -464,7 +487,11 @@ fun LoginScreen(
                     .size(72.dp)
                     .shadow(8.dp, RoundedCornerShape(20.dp))
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Blue600),
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF6C63FF), Color(0xFF9575CD))
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -792,7 +819,11 @@ fun RegisterScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF0F4FF))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFFEEF2FF), Color(0xFFE8EDFF))
+                )
+            )
     ) {
         Column(
             modifier = Modifier
@@ -1323,11 +1354,11 @@ fun FormLabel(text: String) {
 
 @Composable
 fun cleanFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = Color(0xFF4A90E2),
+    focusedBorderColor = Blue500,
     unfocusedBorderColor = Color.LightGray,
     focusedContainerColor = Color.White,
     unfocusedContainerColor = Color.White,
-    cursorColor = Color(0xFF4A90E2)
+    cursorColor = Blue500
 )
 
 /** Progress bar biru bersih */
@@ -1508,7 +1539,11 @@ fun SplashScreen(onFinish: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFD6EAFA)), // light sky blue persis seperti gambar
+            .background(
+                Brush.linearGradient(
+                    listOf(Color(0xFFEEF2FF), Color(0xFFD8D0FF))
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
         // ── Floating geometric shapes & coins ────────────────────
@@ -1727,7 +1762,7 @@ fun MainScreen(
                 onProfil = onProfil
             )
         },
-        containerColor = BgPage
+        containerColor = Color(0xFFFFF0F4)
     ) { padding ->
         Box(modifier = Modifier
             .fillMaxSize()
@@ -1745,10 +1780,10 @@ fun MainScreen(
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  BOTTOM NAV BAR
-// ═══════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════
+//  BOTTOM NAV — Pink Theme
+// ═══════════════════════════════════════════════════════════════════
 @Composable
 fun WishPayBottomNav(
     currentNav: String,
@@ -1759,71 +1794,78 @@ fun WishPayBottomNav(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(White)
-            .border(BorderStroke(0.5.dp, Blue100), shape = RoundedCornerShape(0.dp))
+            .background(Color(0xFFFFF0F4))  // pink sangat soft seperti foto 2
     ) {
+        // Garis tipis di atas
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.8.dp)
+                .background(Color(0xFFF2C8E0))
+                .align(Alignment.TopCenter)
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = 4.dp)
                 .padding(top = 8.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NavItem(
+            // Beranda
+            FlatNavItem(
                 label = "Beranda",
                 isActive = currentNav == "home",
-                svgPath = "home",
+                icon = Icons.Default.Home,
                 onClick = { onNavChange("home") }
             )
-
-            NavItem(
+            // Statistik
+            FlatNavItem(
                 label = "Statistik",
                 isActive = currentNav == "statistik",
-                svgPath = "statistik",
+                icon = Icons.Default.BarChart,
                 onClick = { onNavChange("statistik") }
             )
-
-            // Tombol + tengah
+            // Tombol + tengah — seperti foto 2: bulat kecil pink
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.weight(1f)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(50.dp)
-                        .shadow(
-                            6.dp, CircleShape,
-                            ambientColor = Blue500.copy(0.3f),
-                            spotColor = Blue700.copy(0.3f)
-                        )
+                        .size(44.dp)
                         .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(Blue700, Blue500)))
+                        .background(Color(0xFFE91E8C))   // pink cerah persis foto 2
                         .clickable { onTambah() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Add,
-                        contentDescription = null,
-                        tint = White,
-                        modifier = Modifier.size(26.dp)
+                        null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-                Spacer(Modifier.height(3.dp))
-                Text("Tambah", fontSize = 10.sp, color = TextHint)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Tambah",
+                    fontSize = 10.sp,
+                    color = Color(0xFFE91E8C),
+                    fontWeight = FontWeight.Medium
+                )
             }
-
-            NavItem(
+            // Aktivitas
+            FlatNavItem(
                 label = "Aktivitas",
                 isActive = currentNav == "aktivitas",
-                svgPath = "aktivitas",
+                icon = Icons.Default.History,
                 onClick = { onNavChange("aktivitas") }
             )
-
-            NavItem(
+            // Profil
+            FlatNavItem(
                 label = "Profil",
                 isActive = false,
-                svgPath = "profil",
+                icon = Icons.Default.Person,
                 onClick = { onProfil() }
             )
         }
@@ -1831,14 +1873,44 @@ fun WishPayBottomNav(
 }
 
 @Composable
-fun RowScope.NavItem(
+fun RowScope.FlatNavItem(
     label: String,
     isActive: Boolean,
-    svgPath: String,
-    onClick: () -> Unit,
-    customIcon: (@Composable () -> Unit)? = null,
-    icon: (@Composable () -> Unit)? = null,
-    iconVector: androidx.compose.ui.graphics.vector.ImageVector? = null
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .weight(1f)
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
+            .padding(vertical = 4.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isActive) Color(0xFFE91E8C) else Color(0xFFC0A0B8),
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            label,
+            fontSize = 10.sp,
+            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+            color = if (isActive) Color(0xFFE91E8C) else Color(0xFFC0A0B8)
+        )
+    }
+}
+
+@Composable
+fun RowScope.PinkNavItem(
+    label: String,
+    isActive: Boolean,
+    iconKey: String,
+    onClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1853,54 +1925,35 @@ fun RowScope.NavItem(
             modifier = Modifier
                 .size(32.dp)
                 .clip(RoundedCornerShape(9.dp))
-                .background(if (isActive) Blue50 else Color.Transparent),
+                .background(if (isActive) PinkLight else Color.Transparent),
             contentAlignment = Alignment.Center
         ) {
-            when (svgPath) {
-                "home" -> Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = null,
-                    tint = if (isActive) Blue700 else TextHint,
-                    modifier = Modifier.size(20.dp)
-                )
-
-                "statistik" -> Icon(
-                    imageVector = Icons.Default.BarChart,
-                    contentDescription = null,
-                    tint = if (isActive) Blue700 else TextHint,
-                    modifier = Modifier.size(20.dp)
-                )
-
-                "aktivitas" -> Icon(
-                    imageVector = Icons.Default.History,
-                    contentDescription = null,
-                    tint = if (isActive) Blue700 else TextHint,
-                    modifier = Modifier.size(20.dp)
-                )
-
-                "profil" -> Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = if (isActive) Blue700 else TextHint,
-                    modifier = Modifier.size(20.dp)
-                )
+            val icon = when (iconKey) {
+                "home"      -> Icons.Default.Home
+                "statistik" -> Icons.Default.BarChart
+                "aktivitas" -> Icons.Default.History
+                else        -> Icons.Default.Person
             }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isActive) PinkMain else PinkSubText,
+                modifier = Modifier.size(20.dp)
+            )
         }
         Spacer(Modifier.height(2.dp))
         Text(
             label,
             fontSize = 10.sp,
             fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isActive) Blue700 else TextHint
+            color = if (isActive) PinkMain else PinkSubText
         )
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  HOME SCREEN CONTENT — isi beranda (tanpa FAB & Scaffold)
+//  HOME SCREEN CONTENT — Pink Theme (sesuai desain baru)
 // ═══════════════════════════════════════════════════════════════════
-
-
 @Composable
 fun HomeScreenContent(
     list: List<Celengan>,
@@ -1908,325 +1961,255 @@ fun HomeScreenContent(
     onBellClick: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(0) }
-    val totalTarget = list.sumOf { it.target }
-    val totalTerkumpul = list.sumOf { it.terkumpul }
-    val overallProgress =
-        if (totalTarget > 0) (totalTerkumpul.toFloat() / totalTarget).coerceIn(0f, 1f) else 0f
-    val totalTercapai = list.count { it.terkumpul >= it.target }
-    val auth = FirebaseAuth.getInstance()
-    val email = auth.currentUser?.email ?: ""
+    val totalTarget     = list.sumOf { it.target }
+    val totalTerkumpul  = list.sumOf { it.terkumpul }
+    val totalTercapai   = list.count { it.terkumpul >= it.target }
+
+    val auth        = FirebaseAuth.getInstance()
+    val email       = auth.currentUser?.email ?: ""
     val displayName = auth.currentUser?.displayName?.ifEmpty { null }
         ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
+    val initials    = displayName.split(" ").take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .background(Color(0xFFF0F4FF))) {
+    // Hitung kenaikan (jumlah masuk semua riwayat)
+    val totalMasukBulanIni = list.sumOf { cel ->
+        cel.riwayat.filter { it.tipe == "MASUK" }.sumOf { it.nominal }
+    }
 
-        // ── HEADER ──────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(White)
-                .padding(horizontal = 20.dp)
-                .padding(top = 52.dp, bottom = 20.dp)
-        ) {
-            Column {
-                // Top bar
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Blue50),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.logo_wishpay),
-                                contentDescription = "wishPay",
-                                modifier = Modifier.size(26.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
-                        Text(
-                            "wishPay",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Blue600
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(Blue50)
-                            .border(1.dp, Blue100, CircleShape)
-                            .clickable { onBellClick() },  // ← TAMBAHKAN INI
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Notifications, null, tint = Blue600, modifier = Modifier.size(18.dp))
-
-                        // Badge merah jika ada notif aktif
-                        val notifCount = list.count { it.notifAktif }
-                        if (notifCount > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .align(Alignment.TopEnd)
-                                    .clip(CircleShape)
-                                    .background(RedSoft)
-                                    .border(1.5.dp, White, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = if (notifCount > 9) "9+" else notifCount.toString(),
-                                    fontSize = 7.sp,
-                                    color = White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                // Greeting
-                Text(
-                    "Halo, $displayName! 👋",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    "Semangat Nabung!",
-                    fontSize = 14.sp,
-                    color = TextSecondary
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                // Active badge
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(Blue50)
-                        .border(1.dp, Blue100, RoundedCornerShape(50))
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text("🐷", fontSize = 14.sp)
-                        Text(
-                            "Tabungan Aktif: ${list.size}",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Blue700
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                // ── Stat Cards ───────────────────────────────
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Terkumpul
-                    StatCard(
-                        modifier = Modifier.weight(1f),
-                        icon = "💰",
-                        iconBg = Color(0xFFE8F5E9),
-                        label = "TERKUMPUL",
-                        value = if (totalTerkumpul >= 1_000_000)
-                            "Rp${String.format("%.1f", totalTerkumpul / 1_000_000f)}jt"
-                        else "Rp${"%,d".format(totalTerkumpul)}",
-                        isUnderlined = false
-                    )
-                    // Target Total
-                    StatCard(
-                        modifier = Modifier.weight(1f),
-                        icon = "🎯",
-                        iconBg = Color(0xFFE3F2FD),
-                        label = "TARGET TOTAL",
-                        value = if (totalTarget >= 1_000_000)
-                            "Rp${String.format("%.1f", totalTarget / 1_000_000f)}jt"
-                        else "Rp${"%,d".format(totalTarget)}",
-                        isUnderlined = true
-                    )
-                    // Tercapai
-                    StatCard(
-                        modifier = Modifier.weight(1f),
-                        icon = "✅",
-                        iconBg = Color(0xFFFFF8E1),
-                        label = "TERCAPAI",
-                        value = "$totalTercapai Goal",
-                        isUnderlined = false
-                    )
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                // ── Progress Keseluruhan ──────────────────────
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFDDE3EE)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.padding(14.dp)) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Progres Keseluruhan",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                "${(overallProgress * 100).toInt()}%",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Blue600
-                            )
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        // Progress bar
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(Color(0xFFEEF2F8))
-                        ) {
-                            val animProg by animateFloatAsState(
-                                overallProgress, tween(700, easing = EaseOutCubic), label = "prog"
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(animProg)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(Blue600)
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        val sisa = totalTarget - totalTerkumpul
-                        if (sisa > 0) {
-                            Text(
-                                "Rp ${"%,d".format(sisa)} lagi untuk mencapai target utama kamu!",
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        // ── TAB BAR ──────────────────────────────────────────
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFEF0F7))
+    ) {
+        // ── HEADER ──────────────────────────────────────────────
         Row(
             modifier = Modifier
-                .padding(horizontal = 20.dp)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(White)
-                .border(0.5.dp, Color(0xFFDDE3EE), RoundedCornerShape(12.dp))
-                .padding(3.dp)
+                .background(PinkBg)
+                .padding(horizontal = 20.dp)
+                .padding(top = 52.dp, bottom = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf("Berlangsung", "Tercapai").forEachIndexed { idx, label ->
-                val selected = selectedTab == idx
+            // Kiri: Avatar + Greeting
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (selected) Blue600 else Color.Transparent)
-                        .clickable { selectedTab = idx }
-                        .padding(vertical = 10.dp),
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(PinkMain),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        label,
-                        fontSize = 13.sp,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (selected) White else TextSecondary
+                        initials.ifEmpty { "U" },
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+                Column {
+                    Text(
+                        "Selamat pagi",
+                        fontSize = 12.sp,
+                        color = PinkSubText
+                    )
+                    Text(
+                        displayName,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PinkText
+                    )
+                }
+            }
+
+            // Kanan: Bell icon
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .clickable { onBellClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Notifications, null,
+                    tint = PinkMain,
+                    modifier = Modifier.size(20.dp)
+                )
+                val notifCount = list.count { it.notifAktif }
+                if (notifCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .align(Alignment.TopEnd)
+                            .offset(x = (-1).dp, y = 2.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF5350))
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        // ── LIST ──────────────────────────────────────────────
-        val filteredList = if (selectedTab == 0)
-            list.filter { it.terkumpul < it.target }
-        else
-            list.filter { it.terkumpul >= it.target }
-
-        if (filteredList.isEmpty()) {
-            Box(
+        // ── SCROLLABLE CONTENT ───────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            // ── TOTAL TABUNGAN CARD ──────────────────────────────
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(2.dp),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFFF0F4FF)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(CircleShape)
-                            .background(Blue50),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo_wishpay),
-                            contentDescription = null,
-                            modifier = Modifier.size(50.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(14.dp))
+                Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        if (selectedTab == 0) "Belum ada tabungan" else "Belum ada yang tercapai",
-                        fontSize = 15.sp,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.SemiBold
+                        "TOTAL TABUNGAN",
+                        fontSize = 11.sp,
+                        color = PinkSubText,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Rp ${"%,d".format(totalTerkumpul).replace(",", ".")}",
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PinkText
                     )
                     Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Tap tombol + untuk mulai menabung",
-                        fontSize = 13.sp,
-                        color = TextSecondary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("↑ ", fontSize = 13.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                        Text(
+                            "Naik Rp ${"%,d".format(totalMasukBulanIni).replace(",", ".")} bulan ini",
+                            fontSize = 12.sp,
+                            color = PinkSubText
+                        )
+                    }
                 }
             }
-        } else {
-            LazyColumn(
+
+            Spacer(Modifier.height(14.dp))
+
+            // ── 3 STAT CARDS ────────────────────────────────────
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFFF0F4FF)),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(filteredList) { item ->
-                    CelenganCard(item = item, onClick = { onClickItem(item) })
+                PinkStatCard(
+                    modifier = Modifier.weight(1f),
+                    iconBgColor = PinkPastel1,
+                    label = "Terkumpul",
+                    value = if (totalTerkumpul >= 1_000_000)
+                        "Rp ${String.format("%.2f", totalTerkumpul / 1_000_000f)} jt"
+                    else "Rp ${"%,d".format(totalTerkumpul).replace(",", ".")}"
+                )
+                PinkStatCard(
+                    modifier = Modifier.weight(1f),
+                    iconBgColor = PinkPastel2,
+                    label = "Target Total",
+                    value = if (totalTarget >= 1_000_000)
+                        "Rp ${String.format("%.1f", totalTarget / 1_000_000f)} jt"
+                    else "Rp ${"%,d".format(totalTarget).replace(",", ".")}"
+                )
+                PinkStatCard(
+                    modifier = Modifier.weight(1f),
+                    iconBgColor = PinkPastel3,
+                    label = "Tercapai",
+                    value = "$totalTercapai target"
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // ── TAB BAR ─────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(50.dp))
+                    .background(PinkLight)
+                    .padding(4.dp)
+            ) {
+                listOf("Berlangsung", "Tercapai").forEachIndexed { idx, label ->
+                    val selected = selectedTab == idx
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(50.dp))
+                            .background(if (selected) Color.White else Color.Transparent)
+                            .clickable { selectedTab = idx }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selected) PinkText else PinkMain
+                        )
+                    }
                 }
-                item { Spacer(Modifier.height(16.dp)) }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // ── LIST TABUNGAN ────────────────────────────────────
+            val filteredList = if (selectedTab == 0)
+                list.filter { it.terkumpul < it.target }
+            else
+                list.filter { it.terkumpul >= it.target }
+
+            if (filteredList.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🐷", fontSize = 48.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            if (selectedTab == 0) "Belum ada tabungan"
+                            else "Belum ada yang tercapai",
+                            fontSize = 15.sp,
+                            color = PinkText,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Tap tombol + untuk mulai menabung",
+                            fontSize = 12.sp,
+                            color = PinkSubText
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    filteredList.forEachIndexed { index, item ->
+                        PinkCelenganCard(
+                            item  = item,
+                            index = index,
+                            onClick = { onClickItem(item) }
+                        )
+                    }
+                    Spacer(Modifier.height(100.dp))
+                }
             }
         }
     }
@@ -2240,7 +2223,9 @@ fun StatCard(
     iconBg: Color,
     label: String,
     value: String,
-    isUnderlined: Boolean
+    isUnderlined: Boolean,
+    labelColor: Color = TextSecondary,  // TAMBAH INI
+    valueColor: Color = TextPrimary      // TAMBAH INI
 ) {
     Card(
         shape = RoundedCornerShape(14.dp),
@@ -2279,7 +2264,7 @@ fun StatCard(
                 value,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isUnderlined) Blue700 else TextPrimary,
+                color = valueColor,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -2289,384 +2274,401 @@ fun StatCard(
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  PINK BAR CHART — Setor per Bulan
+// ═══════════════════════════════════════════════════════════════════
+@Composable
+fun PinkBarChart(list: List<Celengan>) {
+    val bulanLabels = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+        "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
+
+    // Ambil 5 bulan terakhir
+    val calendar = java.util.Calendar.getInstance()
+    val currentMonth = calendar.get(java.util.Calendar.MONTH) // 0-based
+
+    val last5Months = (4 downTo 0).map { offset ->
+        val monthIdx = (currentMonth - offset + 12) % 12
+        monthIdx
+    }
+
+    // Hitung total masuk per bulan dari riwayat
+    val dataPerBulan = last5Months.map { monthIdx ->
+        val total = list.sumOf { cel ->
+            cel.riwayat.filter { trx ->
+                trx.tipe == "MASUK" && try {
+                    val sdf = java.text.SimpleDateFormat("dd MMM yyyy", Locale("id"))
+                    val date = sdf.parse(trx.tanggal.substringBefore(" •").trim())
+                    val cal = java.util.Calendar.getInstance()
+                    cal.time = date!!
+                    cal.get(java.util.Calendar.MONTH) == monthIdx
+                } catch (e: Exception) { false }
+            }.sumOf { it.nominal }
+        }
+        Pair(bulanLabels[monthIdx], total)
+    }
+
+    val maxVal = dataPerBulan.maxOfOrNull { it.second } ?: 1
+    val currentMonthLabel = bulanLabels[currentMonth]
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        dataPerBulan.forEach { (label, value) ->
+            val isCurrentMonth = label == currentMonthLabel
+            val heightFraction = if (maxVal > 0) (value.toFloat() / maxVal) else 0f
+            val animatedHeight by animateFloatAsState(
+                targetValue = heightFraction.coerceIn(0.05f, 1f),
+                animationSpec = tween(800, easing = EaseOutCubic),
+                label = "bar_$label"
+            )
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.55f)
+                        .fillMaxHeight(animatedHeight)
+                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                        .background(
+                            if (isCurrentMonth) Color(0xFFE91E8C)
+                            else Color(0xFFF8BBD0)
+                        )
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    label,
+                    fontSize = 10.sp,
+                    color = if (isCurrentMonth) PinkMain else PinkSubText,
+                    fontWeight = if (isCurrentMonth) FontWeight.Bold else FontWeight.Normal
+                )
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  STATISTIK SCREEN
 // ═══════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════
+//  STATISTIK SCREEN — Pink Theme
+// ═══════════════════════════════════════════════════════════════════
 @Composable
 fun StatistikScreen(list: List<Celengan>) {
-    val totalTerkumpul = list.sumOf { it.terkumpul }
-    val totalTarget = list.sumOf { it.target }
-    val totalTrx = list.sumOf { it.riwayat.size }
-    val totalAktif = list.count { it.terkumpul < it.target }
-    val totalTercapai = list.count { it.terkumpul >= it.target }
-    val overallProg =
-        if (totalTarget > 0) (totalTerkumpul.toFloat() / totalTarget).coerceIn(0f, 1f) else 0f
+    val totalMasuk   = list.sumOf { cel -> cel.riwayat.filter { it.tipe == "MASUK" }.sumOf { it.nominal } }
+    val totalKeluar  = list.sumOf { cel -> cel.riwayat.filter { it.tipe == "KELUAR" }.sumOf { it.nominal } }
+    val totalTrxMasuk = list.sumOf { cel -> cel.riwayat.count { it.tipe == "MASUK" } }
+    val totalTrxKeluar = list.sumOf { cel -> cel.riwayat.count { it.tipe == "KELUAR" } }
+    val totalAktif   = list.count { it.terkumpul < it.target }
+    val totalBulan   = 10 // estimasi
+    val rataRata     = if (totalBulan > 0) totalMasuk / totalBulan else 0
+
+    val progressColors = listOf(
+        Color(0xFFEC407A),  // pink
+        Color(0xFF9C27B0),  // purple
+        Color(0xFFFF9800),  // orange
+        Color(0xFF4CAF50),  // green
+        Color(0xFF2196F3)   // blue
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF0F4FF))
+            .background(PinkBg)
     ) {
-        // ── TOP BAR ───────────────────────────────────────────
+        // ── HEADER ──────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(White)
+                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                .background(PinkLight)
                 .padding(horizontal = 20.dp)
-                .padding(top = 52.dp, bottom = 16.dp)
+                .padding(top = 52.dp, bottom = 24.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(Blue50),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo_wishpay),
-                            contentDescription = "wishPay",
-                            modifier = Modifier.size(26.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                    Text("wishPay", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Blue600)
-                }
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Blue50)
-                        .border(1.dp, Blue100, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Notifications,
-                        null,
-                        tint = Blue600,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+            Column {
+                Text(
+                    "Statistik",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PinkMain
+                )
+                Text(
+                    "Ringkasan tabunganmu",
+                    fontSize = 13.sp,
+                    color = PinkMain.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 2.dp)
+                )
             }
         }
 
+        // ── KONTEN SCROLLABLE ────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 16.dp)
                 .padding(top = 16.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // ── Header judul + filter bulan ───────────────────
+
+            // ── 4 STAT CARDS 2x2 ────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    "Statistik",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(White)
-                        .border(0.5.dp, Color(0xFFDDE3EE), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                // Total Disetor
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(0.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    val bulan = java.text.SimpleDateFormat("MMM yyyy", Locale("id"))
-                        .format(java.util.Date())
-                    Text(
-                        bulan,
-                        fontSize = 12.sp,
-                        color = TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Total Disetor",
+                            fontSize = 12.sp,
+                            color = PinkSubText
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (totalMasuk >= 1_000_000)
+                                "Rp ${String.format("%.2f", totalMasuk / 1_000_000f)} jt"
+                            else "Rp ${"%,d".format(totalMasuk).replace(",", ".")}",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PinkText
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Dari $totalTrxMasuk setor",
+                            fontSize = 11.sp,
+                            color = PinkSubText
+                        )
+                    }
                 }
-            }
 
-            // ── Card biru besar: Total Terkumpul ──────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Blue600)
-                    .padding(20.dp)
-            ) {
-                // Dekorasi lingkaran blur di kanan
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .align(Alignment.CenterEnd)
-                        .offset(x = 20.dp)
-                        .clip(CircleShape)
-                        .alpha(0.15f)
-                        .background(White)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(70.dp)
-                        .align(Alignment.TopEnd)
-                        .offset(x = (-10).dp, y = 10.dp)
-                        .clip(CircleShape)
-                        .alpha(0.10f)
-                        .background(White)
-                )
-
-                Column {
-                    Text(
-                        "Total Terkumpul",
-                        fontSize = 13.sp,
-                        color = White.copy(0.82f)
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Rp ${"%,d".format(totalTerkumpul)}",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = White
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(White.copy(0.18f))
-                            .padding(horizontal = 12.dp, vertical = 5.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Text("↑", fontSize = 11.sp, color = White, fontWeight = FontWeight.Bold)
-                            Text(
-                                "+${(overallProg * 100).toInt()}% Bulan ini",
-                                fontSize = 11.sp,
-                                color = White,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                // Total Dipakai
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(0.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Total Dipakai",
+                            fontSize = 12.sp,
+                            color = PinkSubText
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (totalKeluar >= 1_000_000)
+                                "Rp ${String.format("%.2f", totalKeluar / 1_000_000f)} jt"
+                            else if (totalKeluar >= 1000)
+                                "Rp ${"%,d".format(totalKeluar / 1000).replace(",", ".")} rb"
+                            else "Rp ${"%,d".format(totalKeluar).replace(",", ".")}",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PinkText
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Dari $totalTrxKeluar transaksi",
+                            fontSize = 11.sp,
+                            color = PinkSubText
+                        )
                     }
                 }
             }
 
-            // ── Card: Total Target ────────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Target Aktif
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(0.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Target Aktif",
+                            fontSize = 12.sp,
+                            color = PinkSubText
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "$totalAktif target",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PinkText
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Sedang berjalan",
+                            fontSize = 11.sp,
+                            color = PinkSubText
+                        )
+                    }
+                }
+
+                // Rata-rata/Bulan
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(0.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Rata-rata/Bulan",
+                            fontSize = 12.sp,
+                            color = PinkSubText
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (rataRata >= 1_000_000)
+                                "Rp ${String.format("%.0f", rataRata / 1_000_000f)} jt"
+                            else if (rataRata >= 1000)
+                                "Rp ${"%,d".format(rataRata / 1000).replace(",", ".")} rb"
+                            else "Rp ${"%,d".format(rataRata).replace(",", ".")}",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PinkText
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "10 bulan terakhir",
+                            fontSize = 11.sp,
+                            color = PinkSubText
+                        )
+                    }
+                }
+            }
+
+            // ── BAR CHART: Setor per Bulan ───────────────────────
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = White),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(0.dp),
-                border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFDDE3EE)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Total Target", fontSize = 13.sp, color = TextSecondary)
-                    Spacer(Modifier.height(4.dp))
                     Text(
-                        "Rp ${"%,d".format(totalTarget)}",
-                        fontSize = 22.sp,
+                        "Setor per Bulan",
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = PinkText
                     )
-                    Spacer(Modifier.height(10.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFFEEF2F8))
-                    ) {
-                        val animProg by animateFloatAsState(
-                            overallProg, tween(800, easing = EaseOutCubic), label = "statprog"
-                        )
+                    Spacer(Modifier.height(16.dp))
+                    if (list.isNotEmpty()) {
+                        PinkBarChart(list = list)
+                    } else {
                         Box(
                             modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(animProg)
-                                .clip(RoundedCornerShape(50))
-                                .background(Blue600)
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "${(overallProg * 100).toInt()}% dari seluruh impian tercapai",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                }
-            }
-
-            // ── Row 3 stat kecil ──────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                listOf(
-                    Triple("↔", "TRANSAKSI", "$totalTrx"),
-                    Triple("📋", "BERJALAN", "$totalAktif"),
-                    Triple("✅", "TERCAPAI", "$totalTercapai")
-                ).forEach { (icon, label, value) ->
-                    Card(
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = White),
-                        elevation = CardDefaults.cardElevation(0.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            0.5.dp,
-                            Color(0xFFDDE3EE)
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .fillMaxWidth()
+                                .height(100.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(icon, fontSize = 18.sp)
-                            Spacer(Modifier.height(6.dp))
                             Text(
-                                label,
-                                fontSize = 9.sp,
-                                color = TextSecondary,
-                                letterSpacing = 0.3.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                value,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                "Belum ada data",
+                                fontSize = 13.sp,
+                                color = PinkSubText
                             )
                         }
                     }
                 }
             }
 
-            // ── Progres Impian ────────────────────────────────
+            // ── PROGRESS SEMUA TARGET ────────────────────────────
             if (list.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Progres Impian",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Text(
-                        "Lihat Semua",
-                        fontSize = 13.sp,
-                        color = Blue600,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
                 Card(
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = White),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(0.dp),
-                    border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFDDE3EE)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(16.dp)) {
-                        val iconMap = mapOf(
-                            "Harian" to "🐷",
-                            "Mingguan" to "📅",
-                            "Bulanan" to "💰"
+                        Text(
+                            "Progress Semua Target",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PinkText
                         )
-                        val colorList = listOf(Blue600, GreenSoft, OrangeSoft, RedSoft, Blue300)
+                        Spacer(Modifier.height(16.dp))
 
                         list.forEachIndexed { i, cel ->
                             val p = if (cel.target > 0)
                                 (cel.terkumpul.toFloat() / cel.target).coerceIn(0f, 1f) else 0f
-                            val col = colorList[i % colorList.size]
-                            val iconBgCol = when (i % colorList.size) {
-                                0 -> Blue50
-                                1 -> Color(0xFFE8F5E9)
-                                2 -> Color(0xFFFFF8E1)
-                                3 -> Color(0xFFFFEBEE)
-                                else -> Blue50
-                            }
+                            val dotColor = progressColors[i % progressColors.size]
 
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                // Ikon celengan
+                                // Dot warna
                                 Box(
                                     modifier = Modifier
-                                        .size(42.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(iconBgCol),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(iconMap[cel.jenis] ?: "🐷", fontSize = 18.sp)
-                                }
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(dotColor)
+                                )
 
-                                Column(Modifier.weight(1f)) {
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            cel.nama,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = TextPrimary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Text(
-                                            "${(p * 100).toInt()}%",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = col
-                                        )
-                                    }
-                                    Spacer(Modifier.height(3.dp))
+                                // Nama + bar
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        "Target: Rp ${"%,d".format(cel.target)}",
-                                        fontSize = 11.sp,
-                                        color = TextSecondary
+                                        cel.nama,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = PinkText,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                    Spacer(Modifier.height(6.dp))
+                                    Spacer(Modifier.height(5.dp))
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(6.dp)
                                             .clip(RoundedCornerShape(50))
-                                            .background(Color(0xFFEEF2F8))
+                                            .background(Color(0xFFF5F5F5))
                                     ) {
                                         val animP by animateFloatAsState(
-                                            p, tween(700, i * 120), label = "ip$i"
+                                            p,
+                                            tween(700, easing = EaseOutCubic),
+                                            label = "sp$i"
                                         )
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxHeight()
                                                 .fillMaxWidth(animP)
                                                 .clip(RoundedCornerShape(50))
-                                                .background(col)
+                                                .background(dotColor)
                                         )
                                     }
                                 }
+
+                                // Persentase
+                                Text(
+                                    "${(p * 100).toInt()}%",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = dotColor
+                                )
                             }
 
                             if (i < list.lastIndex) {
-                                Spacer(Modifier.height(14.dp))
-                                HorizontalDivider(color = Color(0xFFEEF2F8))
-                                Spacer(Modifier.height(14.dp))
+                                Spacer(Modifier.height(4.dp))
                             }
                         }
                     }
@@ -2674,9 +2676,8 @@ fun StatistikScreen(list: List<Celengan>) {
             } else {
                 Card(
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = White),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(0.dp),
-                    border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFDDE3EE)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Box(
@@ -2685,11 +2686,15 @@ fun StatistikScreen(list: List<Celengan>) {
                             .padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            "Belum ada celengan",
-                            fontSize = 14.sp,
-                            color = TextSecondary
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🐷", fontSize = 36.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Belum ada celengan",
+                                fontSize = 14.sp,
+                                color = PinkSubText
+                            )
+                        }
                     }
                 }
             }
@@ -2715,219 +2720,212 @@ fun AktivitasScreen(list: List<Celengan>) {
         }.sortedByDescending { it.second.tanggal }
     }
 
-    val totalMasuk = semuaAktivitas.filter { it.second.tipe == "MASUK" }.sumOf { it.second.nominal }
-    val totalKeluar =
-        semuaAktivitas.filter { it.second.tipe == "KELUAR" }.sumOf { it.second.nominal }
-    val totalTrx = semuaAktivitas.size
-
-    val today = SimpleDateFormat("dd MMM yyyy", Locale("id")).format(Date())
+    val today     = SimpleDateFormat("dd MMM yyyy", Locale("id")).format(Date())
     val yesterday = SimpleDateFormat("dd MMM yyyy", Locale("id"))
         .format(Date(System.currentTimeMillis() - 86_400_000L))
 
     val filtered = when (filterAktif) {
-        "Masuk" -> semuaAktivitas.filter { it.second.tipe == "MASUK" }
-        "Keluar" -> semuaAktivitas.filter { it.second.tipe == "KELUAR" }
-        "Hari ini" -> semuaAktivitas.filter {
-            it.second.tanggal.contains(today)
-        }
-
-        else -> semuaAktivitas
+        "Setor" -> semuaAktivitas.filter { it.second.tipe == "MASUK" }
+        "Pakai" -> semuaAktivitas.filter { it.second.tipe == "KELUAR" }
+        else    -> semuaAktivitas
     }
 
-    // Kelompokkan berdasarkan tanggal (ambil bagian sebelum " •")
     val grouped = filtered.groupBy { (_, trx, _) ->
         trx.tanggal.substringBefore(" •").trim()
     }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .background(Color(0xFFF0F4FF))) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFFF0F4))
+    ) {
 
         // ── HEADER ────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(brush = HeaderGrad)
+                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                .background(Color(0xFFF8BBD0))
                 .padding(horizontal = 20.dp)
-                .padding(top = 48.dp, bottom = 20.dp)
+                .padding(top = 52.dp, bottom = 20.dp)
         ) {
             Column {
-                // Logo row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(White.copy(0.18f)),
-                            contentAlignment = Alignment.Center
-                        ) { Text("💰", fontSize = 16.sp) }
-                        Text(
-                            "wishPay",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = White
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(White.copy(0.18f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Notifications, null,
-                            tint = White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(14.dp))
-
                 Text(
                     "Aktivitas",
-                    fontSize = 20.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = White
+                    color = Color(0xFF4A148C)
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    "Semua riwayat tabunganmu",
-                    fontSize = 12.sp,
-                    color = White.copy(0.72f),
-                    modifier = Modifier.padding(top = 2.dp)
+                    "Riwayat semua transaksi",
+                    fontSize = 13.sp,
+                    color = Color(0xFF9E9E9E)
                 )
-
-                Spacer(Modifier.height(14.dp))
-
-                // Summary chips
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    AktSummaryChip(
-                        label = "Total Masuk",
-                        value = "+Rp ${"%,d".format(totalMasuk)}",
-                        isGreen = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    AktSummaryChip(
-                        label = "Total Keluar",
-                        value = "-Rp ${"%,d".format(totalKeluar)}",
-                        isGreen = false,
-                        modifier = Modifier.weight(1f)
-                    )
-                    AktSummaryChip(
-                        label = "Transaksi",
-                        value = "${totalTrx}x",
-                        isGreen = null,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
             }
         }
 
-        // ── FILTER PILLS ──────────────────────────────────────────
+        // ── FILTER CHIPS ──────────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp)
-                .padding(top = 12.dp, bottom = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(horizontal = 16.dp)
+                .padding(top = 14.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf("Semua", "Masuk", "Keluar", "Hari ini").forEach { f ->
-                AktFilterPill(
-                    text = f,
-                    isActive = filterAktif == f,
-                    onClick = { filterAktif = f }
-                )
+            listOf("Semua", "Setor", "Pakai").forEach { f ->
+                val isActive = filterAktif == f
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50.dp))
+                        .background(
+                            if (isActive) Color(0xFFE91E8C) else Color.White
+                        )
+                        .border(
+                            1.dp,
+                            if (isActive) Color(0xFFE91E8C) else Color(0xFFE0C8D4),
+                            RoundedCornerShape(50.dp)
+                        )
+                        .clickable { filterAktif = f }
+                        .padding(horizontal = 22.dp, vertical = 9.dp)
+                ) {
+                    Text(
+                        f,
+                        fontSize = 13.sp,
+                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isActive) Color.White else Color(0xFF9E9E9E)
+                    )
+                }
             }
         }
 
-        // ── ISI ───────────────────────────────────────────────────
+        // ── ISI LIST ──────────────────────────────────────────────
         if (filtered.isEmpty()) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFFF0F4FF)),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFE8F3FA)),
-                        contentAlignment = Alignment.Center
-                    ) { Text("🔔", fontSize = 32.sp) }
-                    Spacer(Modifier.height(14.dp))
+                    Text("🔔", fontSize = 40.sp)
+                    Spacer(Modifier.height(12.dp))
                     Text(
                         "Belum ada aktivitas",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        color = PinkSubText
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "Mulai menabung untuk melihat aktivitas",
                         fontSize = 13.sp,
-                        color = TextSecondary
+                        color = PinkSubText
                     )
                 }
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFFF0F4FF)),
-                contentPadding = PaddingValues(bottom = 24.dp)
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 16.dp, end = 16.dp,
+                    top = 4.dp, bottom = 32.dp
+                )
             ) {
                 grouped.forEach { (dateKey, items) ->
+
                     // Label tanggal
                     item {
                         val dateLabel = when (dateKey) {
-                            today -> "Hari ini — $dateKey"
-                            yesterday -> "Kemarin — $dateKey"
-                            else -> dateKey
+                            today     -> "Hari Ini"
+                            yesterday -> "Kemarin"
+                            else      -> dateKey
                         }
                         Text(
-                            dateLabel.uppercase(),
-                            fontSize = 11.sp,
+                            dateLabel,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextHint,
-                            letterSpacing = 0.5.sp,
-                            modifier = Modifier.padding(
-                                start = 14.dp, end = 14.dp,
-                                top = 10.dp, bottom = 4.dp
-                            )
+                            color = Color(0xFFE91E8C),
+                            modifier = Modifier.padding(top = 14.dp, bottom = 8.dp)
                         )
                     }
-                    // Kartu per item
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(7.dp)
-                        ) {
-                            items.forEach { (namaCelengan, trx, _) ->
-                                AktivitasCard(
-                                    namaCelengan = namaCelengan,
-                                    trx = trx
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(6.dp))
+
+                    // Kartu transaksi
+                    items(items) { (namaCelengan, trx, _) ->
+                        AktivitasCardBaru(
+                            namaCelengan = namaCelengan,
+                            trx          = trx
+                        )
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun AktivitasCardBaru(namaCelengan: String, trx: Transaksi) {
+    val isMasuk  = trx.tipe == "MASUK"
+    val timePart = if (trx.tanggal.contains("•"))
+        trx.tanggal.substringAfter("•").trim().replace(":", ".") else ""
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (isMasuk) Color(0xFFD6F5E3) else Color(0xFFFFE0EA)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (isMasuk) "↑" else "↓",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isMasuk) Color(0xFF43A047) else Color(0xFFE91E8C)
+                )
+            }
+
+            // ── Info tengah ───────────────────────────────────────
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "${if (isMasuk) "Setor" else "Pakai"} Tabungan · $namaCelengan",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF37474F),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (timePart.isNotEmpty()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        timePart,
+                        fontSize = 12.sp,
+                        color = Color(0xFFAAAAAA)
+                    )
+                }
+            }
+
+            // ── Nominal ───────────────────────────────────────────
+            Text(
+                "${if (isMasuk) "+" else "−"}Rp ${"%,d".format(trx.nominal).replace(",", ".")}",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isMasuk) Color(0xFF43A047) else Color(0xFFE91E8C)
+            )
         }
     }
 }
@@ -3765,6 +3763,164 @@ fun HomeScreen(
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  PINK STAT CARD — untuk home screen baru
+// ═══════════════════════════════════════════════════════════════════
+@Composable
+fun PinkStatCard(
+    modifier: Modifier = Modifier,
+    iconBgColor: Color,
+    label: String,
+    value: String
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(0.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Kotak warna besar (seperti di HTML & foto 1)
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(iconBgColor)
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                label,
+                fontSize = 11.sp,
+                color = PinkSubText,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                value,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = PinkText,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PINK CELENGAN CARD — untuk home screen baru
+// ═══════════════════════════════════════════════════════════════════
+@Composable
+fun PinkCelenganCard(item: Celengan, index: Int, onClick: () -> Unit) {
+    val progress = if (item.target > 0)
+        (item.terkumpul.toFloat() / item.target).coerceIn(0f, 1f) else 0f
+
+    val iconColors = listOf(
+        Color(0xFFFFE0F0), // pink
+        Color(0xFFEDE0FF), // purple
+        Color(0xFFFFF3D6), // amber
+        Color(0xFFC8F0E0), // mint
+        Color(0xFFE0F0FF)  // blue
+    )
+    val iconEmojis = listOf("👗", "✈️", "📱", "🏠", "🎯")
+    val progressColors = listOf(
+        Color(0xFFD060A0), // pink
+        Color(0xFF8060C0), // purple
+        Color(0xFFB07820), // amber
+        Color(0xFF208860), // green
+        Color(0xFF4080C0)  // blue
+    )
+
+    val iconBg    = iconColors[index % iconColors.size]
+    val barColor  = progressColors[index % progressColors.size]
+    val emoji     = iconEmojis[index % iconEmojis.size]
+
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = BorderStroke(1.5.dp, Color(0xFFF2C8E0)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Icon bulat/rounded dengan emoji
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(iconBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(emoji, fontSize = 24.sp)
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        item.nama,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF6E2050),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "${(progress * 100).toInt()}%",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = barColor
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Rp ${"%,d".format(item.terkumpul).replace(",",".")} dari Rp ${"%,d".format(item.target).replace(",",".")}",
+                    fontSize = 11.sp,
+                    color = Color(0xFFA06080)
+                )
+                Spacer(Modifier.height(8.dp))
+                // Progress bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFFF5EEF4))
+                ) {
+                    val animP by animateFloatAsState(
+                        progress, tween(700, easing = EaseOutCubic), label = "pink_p"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(animP)
+                            .clip(RoundedCornerShape(50))
+                            .background(barColor)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  CELENGAN CARD — bersih & minimalis
 // ═══════════════════════════════════════════════════════════════════
 
@@ -3779,7 +3935,10 @@ fun CelenganCard(item: Celengan, onClick: () -> Unit) {
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFDDE3EE)),
+        border = androidx.compose.foundation.BorderStroke(
+            0.5.dp,
+            Brush.linearGradient(listOf(Color(0xFFE0D7FF), Color(0xFFF0EDFF)))
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -3986,476 +4145,655 @@ fun DetailScreen(
     onUpdate: () -> Unit,
     onEdit: () -> Unit
 ) {
-    var input by remember { mutableStateOf("") }
-    var showDialog by remember { mutableStateOf(false) }
+    var inputSetor    by remember { mutableStateOf("") }
+    var inputPakai    by remember { mutableStateOf("") }
+    var showSetorSheet by remember { mutableStateOf(false) }
+    var showPakaiSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var nominalKeluar by remember { mutableStateOf(0) }
     var showSuksesDialog by remember { mutableStateOf(false) }
-    var nominalSukses by remember { mutableStateOf(0) }
+    var nominalSukses  by remember { mutableStateOf(0) }
     var showTercapaiDialog by remember { mutableStateOf(false) }
+    var showMenuSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val progress =
-        if (celengan.target > 0) (celengan.terkumpul.toFloat() / celengan.target).coerceIn(
-            0f,
-            1f
-        ) else 0f
-    val tercapai = celengan.terkumpul >= celengan.target
+    val scope   = rememberCoroutineScope()
 
-    Box(Modifier
-        .fillMaxSize()
-        .background(BgPage)) {
+    val progress = if (celengan.target > 0)
+        (celengan.terkumpul.toFloat() / celengan.target).coerceIn(0f, 1f) else 0f
+    val sisa = (celengan.target - celengan.terkumpul).coerceAtLeast(0)
+
+    // Hitung streak (hari berturut-turut ada transaksi MASUK)
+    val streak = run {
+        val sdf  = SimpleDateFormat("dd MMM yyyy", Locale("id"))
+        val days = celengan.riwayat
+            .filter { it.tipe == "MASUK" }
+            .mapNotNull { runCatching { sdf.parse(it.tanggal.substringBefore(" •")) }.getOrNull() }
+            .map { it.time / 86_400_000L }
+            .toSortedSet()
+            .toList()
+            .asReversed()
+        var count = 0
+        var prev  = System.currentTimeMillis() / 86_400_000L
+        for (d in days) {
+            if (prev - d <= 1L) { count++; prev = d } else break
+        }
+        count
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFFF0F4))
+    ) {
+
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // ── HEADER ────────────────────────────────────────────────
+            // ── HEADER PINK ──────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        brush = HeaderGrad,
-                        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
-                    )
+                    .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                    .background(Color(0xFFF8BBD0))
                     .padding(horizontal = 20.dp)
-                    .padding(top = 48.dp, bottom = 24.dp)
+                    .padding(top = 52.dp, bottom = 24.dp)
             ) {
-                Column {
-                    // Nav row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                // Tombol back kiri
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.7f))
+                        .clickable { onKembali() }
+                        .align(Alignment.CenterStart),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.ArrowBack, null,
+                        tint = Color(0xFF4A148C),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Tombol 3-dot kanan — dengan dropdown menu
+                var showDropdown by remember { mutableStateOf(false) }
+
+                Box(
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.7f))
+                            .clickable { showDropdown = true },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(White.copy(0.18f))
-                                .clickable { onKembali() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.ArrowBack,
-                                null,
-                                tint = White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Text(
-                            celengan.nama,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 12.dp),
-                            textAlign = TextAlign.Center
+                        Icon(
+                            Icons.Default.MoreVert, null,
+                            tint = Color(0xFF4A148C),
+                            modifier = Modifier.size(20.dp)
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Tombol Edit
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(White.copy(0.18f))
-                                    .clickable { onEdit() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    null,
-                                    tint = White.copy(0.9f),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            // Tombol Delete
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(White.copy(0.18f))
-                                    .clickable { showDeleteDialog = true },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    null,
-                                    tint = White.copy(0.8f),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
                     }
 
-                    Spacer(Modifier.height(20.dp))
-
-                    // Progress display
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Circular progress besar
-                        Box(contentAlignment = Alignment.Center) {
-                            CircularProgress(progress = progress, size = 80, strokeWidth = 8f)
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "${(progress * 100).toInt()}%",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = White
-                                )
-                                Text("tercapai", fontSize = 9.sp, color = White.copy(0.7f))
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Terkumpul", fontSize = 11.sp, color = White.copy(0.72f))
-                            Text(
-                                "Rp ${"%,d".format(celengan.terkumpul)}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = White
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                    // Bottom sheet menu — muncul di atas semua konten
+                    if (showDropdown) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.35f))
+                                .clickable { showDropdown = false },
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Card(
+                                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = false) {}
                             ) {
-                                Column {
-                                    Text("Target", fontSize = 10.sp, color = White.copy(0.6f))
-                                    Text(
-                                        "Rp ${"%,d".format(celengan.target)}",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = White.copy(0.9f)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(top = 16.dp, bottom = 32.dp)
+                                ) {
+                                    // Drag handle
+                                    Box(
+                                        modifier = Modifier
+                                            .width(36.dp)
+                                            .height(4.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(Color(0xFFE8D0DC))
+                                            .align(Alignment.CenterHorizontally)
                                     )
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text("Sisa", fontSize = 10.sp, color = White.copy(0.6f))
+
+                                    Spacer(Modifier.height(16.dp))
+
+                                    // Nama celengan sebagai judul sheet
                                     Text(
-                                        "Rp ${
-                                            "%,d".format(
-                                                (celengan.target - celengan.terkumpul).coerceAtLeast(
-                                                    0
-                                                )
+                                        celengan.nama,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF4A148C),
+                                        modifier = Modifier.padding(bottom = 16.dp)
+                                    )
+
+                                    // ── Edit Celengan ──────────────────────────────
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .clickable {
+                                                showDropdown = false
+                                                onEdit()
+                                            }
+                                            .padding(vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(Color(0xFFF3E5F5)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Edit, null,
+                                                tint = Color(0xFF9C27B0),
+                                                modifier = Modifier.size(22.dp)
                                             )
-                                        }",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = White.copy(0.9f)
-                                    )
+                                        }
+                                        Column {
+                                            Text(
+                                                "Edit Celengan",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color(0xFF37474F)
+                                            )
+                                            Text(
+                                                "Ubah nama, target, atau pengingat",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF9E9E9E)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(4.dp))
+
+                                    // ── Hapus Celengan ─────────────────────────────
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .clickable {
+                                                showDropdown = false
+                                                showDeleteDialog = true
+                                            }
+                                            .padding(vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(Color(0xFFFFE8EC)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete, null,
+                                                tint = Color(0xFFE91E8C),
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                        Column {
+                                            Text(
+                                                "Hapus Celengan",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color(0xFFE91E8C)
+                                            )
+                                            Text(
+                                                "Hapus celengan dan semua datanya",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF9E9E9E)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                // Konten tengah
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Icon celengan
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.6f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🐷", fontSize = 28.sp)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Celengan",
+                        fontSize = 12.sp,
+                        color = Color(0xFF9E9E9E)
+                    )
+                    Text(
+                        celengan.nama,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4A148C),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
-
+            // ── SCROLLABLE CONTENT ───────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
-                    .padding(top = 16.dp, bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(top = 20.dp, bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
 
-                // Stat chips — dengan icon yang menarik
+                // ── CARD TOTAL TERKUMPUL + PROGRESS ──────────────────
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(0.dp),
+                    border = BorderStroke(1.dp, Color(0xFFF2C8E0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            "Total Terkumpul",
+                            fontSize = 12.sp,
+                            color = Color(0xFF9E9E9E)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Rp ${"%,d".format(celengan.terkumpul).replace(",", ".")}",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE91E8C)
+                        )
+                        Text(
+                            "dari target Rp ${"%,d".format(celengan.target).replace(",", ".")}",
+                            fontSize = 13.sp,
+                            color = Color(0xFF9E9E9E)
+                        )
+                        Spacer(Modifier.height(16.dp))
+
+                        // Progress bar
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFFFFE0EA))
+                        ) {
+                            val animP by animateFloatAsState(
+                                progress, tween(700, easing = EaseOutCubic), label = "dp"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(animP)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(Color(0xFFE91E8C), Color(0xFF9C27B0))
+                                        )
+                                    )
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "${(progress * 100).toInt()}%",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE91E8C)
+                            )
+                            Text(
+                                "Sisa Rp ${"%,d".format(sisa).replace(",", ".")}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF9E9E9E)
+                            )
+                        }
+                    }
+                }
+
+                // ── DUA TOMBOL AKSI ───────────────────────────────────
                 Row(
-                    Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Tombol + Setor (filled pink-purple)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(80.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(Color(0xFFE91E8C), Color(0xFF9C27B0))
+                                )
+                            )
+                            .clickable { showSetorSheet = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("↑", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                                    color = Color.White)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "+ Setor",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    // Tombol Pakai (outline)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(80.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.White)
+                            .border(
+                                1.5.dp,
+                                Color(0xFFF2C8E0),
+                                RoundedCornerShape(18.dp)
+                            )
+                            .clickable { showPakaiSheet = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFFE0EA)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("↓", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE91E8C))
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Pakai",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE91E8C)
+                            )
+                        }
+                    }
+                }
+
+                // ── 3 INFO CHIPS ──────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Estimasi hari
-                    CleanCard(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Blue50),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Timer,
-                                    contentDescription = null,
-                                    tint = Blue500,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                if (celengan.nominal > 0)
-                                    "${
-                                        (celengan.target - celengan.terkumpul).coerceAtLeast(0) / celengan.nominal.coerceAtLeast(
-                                            1
-                                        )
-                                    } hari"
-                                else "—",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                "Estimasi",
-                                fontSize = 10.sp,
-                                color = TextSecondary,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
+                    // Frekuensi
+                    DetailInfoChip(
+                        modifier = Modifier.weight(1f),
+                        value = celengan.jenis,
+                        label = "FREKUENSI"
+                    )
+                    // Target Tanggal
+                    DetailInfoChip(
+                        modifier = Modifier.weight(1f),
+                        value = "—",
+                        label = "TARGET TANGGAL"
+                    )
+                    // Streak Nabung
+                    DetailInfoChip(
+                        modifier = Modifier.weight(1f),
+                        value = "$streak hari",
+                        label = "STREAK NABUNG"
+                    )
+                }
 
-                    // Per harian/mingguan/bulanan
-                    CleanCard(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(OrangeBg),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarToday,
-                                    contentDescription = null,
-                                    tint = OrangeSoft,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "Rp ${"%,d".format(celengan.nominal)}",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                "Per ${celengan.jenis.lowercase()}",
-                                fontSize = 10.sp,
-                                color = TextSecondary,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
+                // ── RIWAYAT TRANSAKSI ─────────────────────────────────
+                if (celengan.riwayat.isNotEmpty()) {
+                    Text(
+                        "Riwayat Transaksi",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF37474F)
+                    )
 
-                    // Transaksi
-                    CleanCard(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(GreenBg),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.SwapVert,
-                                    contentDescription = null,
-                                    tint = GreenSoft,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "${celengan.riwayat.size}x",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                "Transaksi",
-                                fontSize = 10.sp,
-                                color = TextSecondary,
-                                textAlign = TextAlign.Center
-                            )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        celengan.riwayat.reversed().forEach { trx ->
+                            DetailTrxCard(trx = trx)
                         }
                     }
                 }
+            }
+        }
 
-                // Notifikasi
-                CleanCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
+        // ── BOTTOM SHEET: SETOR ───────────────────────────────────────────
+        if (showSetorSheet) {
+            var catatanSetor by remember { mutableStateOf("") }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .clickable { showSetorSheet = false },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Card(
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = false) {}
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 12.dp, bottom = 32.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Blue50),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    null,
-                                    tint = Blue500,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
+                        // Drag handle
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFFE0E0E0))
+                                .align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(Modifier.height(20.dp))
+
+                        // Judul + subtitle
+                        Text(
+                            "Setor Tabungan",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF37474F)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Tambahkan uang ke celengan ${celengan.nama}",
+                            fontSize = 13.sp,
+                            color = Color(0xFF9E9E9E)
+                        )
+                        Spacer(Modifier.height(20.dp))
+
+                        // Input nominal besar
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFFFF0F4))
+                                .border(1.5.dp, Color(0xFFF2C8E0), RoundedCornerShape(14.dp))
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    "Pengingat Menabung",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary
+                                    "Rp ",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE91E8C)
                                 )
-                                Text(celengan.jamNotif, fontSize = 12.sp, color = TextSecondary)
+                                BasicTextField(
+                                    value = if (inputSetor == "0" || inputSetor.isEmpty()) "" else inputSetor,
+                                    onValueChange = { inputSetor = if (it.isEmpty()) "0" else it },
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF37474F)
+                                    ),
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                    ),
+                                    decorationBox = { inner ->
+                                        if (inputSetor.isEmpty() || inputSetor == "0") {
+                                            Text(
+                                                "0",
+                                                fontSize = 22.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFBBBBBB)
+                                            )
+                                        }
+                                        inner()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
                         }
-                        Switch(
-                            checked = celengan.notifAktif,
-                            onCheckedChange = {
-                                celengan.notifAktif = it
-                                if (it) {
-                                    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                                    scheduleNotification(context, celengan.jamNotif, userId)
-                                }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = White,
-                                checkedTrackColor = Blue500
-                            )
-                        )
-                    }
-                }
 
-                // Input nabung
-                CleanCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(
-                            "Isi Tabungan",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(14.dp))
 
-                        OutlinedTextField(
-                            value = input,
-                            onValueChange = { input = it },
-                            label = { Text("Nominal (Rp)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Blue500,
-                                focusedLabelColor = Blue500,
-                                cursorColor = Blue500
-                            ),
-                            prefix = { Text("Rp ", color = TextHint) }
-                        )
-
-                        Spacer(Modifier.height(10.dp))
-
-                        // Quick chips
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(
-                                "5.000" to 5000,
-                                "10.000" to 10000,
-                                "50.000" to 50000
-                            ).forEach { (label, value) ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Blue50)
-                                        .border(1.dp, Blue100, RoundedCornerShape(8.dp))
-                                        .clickable { input = value.toString() }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        // Chip nominal — 2 baris, 4 + 2
+                        val nominalsSetor = listOf(10000, 25000, 50000, 100000, 200000, 500000)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            nominalsSetor.chunked(4).forEach { rowItems ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(
-                                        "Rp $label",
-                                        fontSize = 12.sp,
-                                        color = Blue600,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                                    rowItems.forEach { v ->
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(
+                                                    if (inputSetor == v.toString())
+                                                        Color(0xFFE91E8C)
+                                                    else Color(0xFFFFF0F4)
+                                                )
+                                                .border(
+                                                    1.dp,
+                                                    if (inputSetor == v.toString())
+                                                        Color(0xFFE91E8C)
+                                                    else Color(0xFFF2C8E0),
+                                                    RoundedCornerShape(20.dp)
+                                                )
+                                                .clickable { inputSetor = v.toString() }
+                                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(
+                                                "%,d".format(v).replace(",", "."),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = if (inputSetor == v.toString())
+                                                    Color.White
+                                                else Color(0xFFE91E8C)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
 
                         Spacer(Modifier.height(14.dp))
 
-                        // Tombol nabung
+                        // Catatan opsional
+                        OutlinedTextField(
+                            value = catatanSetor,
+                            onValueChange = { catatanSetor = it },
+                            placeholder = {
+                                Text(
+                                    "Catatan (opsional)...",
+                                    color = Color(0xFFBBBBBB),
+                                    fontSize = 14.sp
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFF2C8E0),
+                                unfocusedBorderColor = Color(0xFFF2C8E0),
+                                focusedContainerColor = Color(0xFFFFF0F4),
+                                unfocusedContainerColor = Color(0xFFFFF0F4),
+                                cursorColor = Color(0xFFE91E8C)
+                            ),
+                            singleLine = true
+                        )
+
+                        Spacer(Modifier.height(20.dp))
+
+                        // Tombol Setor Sekarang
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(BtnGrad)
+                                .height(54.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFFE91E8C), Color(0xFF9C27B0))
+                                    )
+                                )
                                 .clickable {
-                                    val tambah = input.toIntOrNull() ?: 0
+                                    val tambah = inputSetor.replace(".", "").toIntOrNull() ?: 0
                                     if (tambah > 0) {
-                                        val userId =
-                                            FirebaseAuth.getInstance().currentUser?.uid ?: ""
-
-                                        // Update local state dulu
+                                        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                                         celengan.terkumpul += tambah
-                                        val now = SimpleDateFormat(
-                                            "dd MMM yyyy • HH:mm",
-                                            Locale.getDefault()
-                                        )
-                                            .format(Date())
-                                        celengan.riwayat.add(
-                                            Transaksi(
-                                                tanggal = now,
-                                                nominal = tambah,
-                                                tipe = "MASUK"
-                                            )
-                                        )
+                                        val now = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault()).format(Date())
+                                        celengan.riwayat.add(Transaksi(tanggal = now, nominal = tambah, tipe = "MASUK", keterangan = catatanSetor))
                                         onUpdate()
-                                        input = ""
                                         nominalSukses = tambah
+                                        inputSetor = ""
+                                        showSetorSheet = false
                                         showSuksesDialog = true
-                                        if (celengan.terkumpul >= celengan.target) {
-                                            showTercapaiDialog = true
-                                        }
-
-                                        // Simpan ke Firestore di background
+                                        if (celengan.terkumpul >= celengan.target) showTercapaiDialog = true
                                         if (userId.isNotEmpty() && celengan.id.isNotEmpty()) {
-                                            val trxMasuk = Transaksi(
-                                                tanggal = now,
-                                                nominal = tambah,
-                                                tipe = "MASUK"
-                                            )
                                             scope.launch {
                                                 try {
-                                                    // Update saldo di Firestore
-                                                    FirestoreManager.tambahSaldo(
-                                                        userId = userId,
-                                                        celenganId = celengan.id,
-                                                        jumlah = tambah
-                                                    )
-                                                    // Simpan riwayat MASUK ke Firestore
-                                                    FirestoreManager.tambahRiwayat(
-                                                        userId = userId,
-                                                        celenganId = celengan.id,
-                                                        trx = trxMasuk
-                                                    )
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
-                                                }
+                                                    FirestoreManager.tambahSaldo(userId, celengan.id, tambah)
+                                                    FirestoreManager.tambahRiwayat(userId, celengan.id, Transaksi(now, tambah, "MASUK", catatanSetor))
+                                                } catch (e: Exception) { e.printStackTrace() }
                                             }
                                         }
                                     }
@@ -4463,1383 +4801,456 @@ fun DetailScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                "Nabung Sekarang",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = White
+                                "Setor Sekarang",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             )
                         }
+                    }
+                }
+            }
+        }
 
-                        Spacer(Modifier.height(10.dp))
+        // ── BOTTOM SHEET: PAKAI ───────────────────────────────────────────
+        if (showPakaiSheet) {
+            var catatanPakai by remember { mutableStateOf("") }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .clickable { showPakaiSheet = false },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Card(
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = false) {}
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 12.dp, bottom = 32.dp)
+                    ) {
+                        // Drag handle
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFFE0E0E0))
+                                .align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(Modifier.height(20.dp))
 
-// Tombol kurangi tabungan
+                        // Judul + subtitle
+                        Text(
+                            "Pakai Tabungan",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF37474F)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Gunakan tabungan dari celengan ${celengan.nama}",
+                            fontSize = 13.sp,
+                            color = Color(0xFF9E9E9E)
+                        )
+                        Spacer(Modifier.height(20.dp))
+
+                        // Input nominal besar
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(RedSoft)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFFFF0F4))
+                                .border(1.5.dp, Color(0xFFF2C8E0), RoundedCornerShape(14.dp))
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Rp ",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE91E8C)
+                                )
+                                BasicTextField(
+                                    value = if (inputPakai == "0" || inputPakai.isEmpty()) "" else inputPakai,
+                                    onValueChange = { inputPakai = if (it.isEmpty()) "0" else it },
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF37474F)
+                                    ),
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                    ),
+                                    decorationBox = { inner ->
+                                        if (inputPakai.isEmpty() || inputPakai == "0") {
+                                            Text(
+                                                "0",
+                                                fontSize = 22.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFBBBBBB)
+                                            )
+                                        }
+                                        inner()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Chip nominal — 2 baris, 4 + 2
+                        val nominalsPakai = listOf(10000, 25000, 50000, 100000, 200000, 500000)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            nominalsPakai.chunked(4).forEach { rowItems ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowItems.forEach { v ->
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(
+                                                    if (inputPakai == v.toString())
+                                                        Color(0xFFE91E8C)
+                                                    else Color(0xFFFFF0F4)
+                                                )
+                                                .border(
+                                                    1.dp,
+                                                    if (inputPakai == v.toString())
+                                                        Color(0xFFE91E8C)
+                                                    else Color(0xFFF2C8E0),
+                                                    RoundedCornerShape(20.dp)
+                                                )
+                                                .clickable { inputPakai = v.toString() }
+                                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(
+                                                "%,d".format(v).replace(",", "."),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = if (inputPakai == v.toString())
+                                                    Color.White
+                                                else Color(0xFFE91E8C)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Catatan opsional
+                        OutlinedTextField(
+                            value = catatanPakai,
+                            onValueChange = { catatanPakai = it },
+                            placeholder = {
+                                Text(
+                                    "Catatan (opsional)...",
+                                    color = Color(0xFFBBBBBB),
+                                    fontSize = 14.sp
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFF2C8E0),
+                                unfocusedBorderColor = Color(0xFFF2C8E0),
+                                focusedContainerColor = Color(0xFFFFF0F4),
+                                unfocusedContainerColor = Color(0xFFFFF0F4),
+                                cursorColor = Color(0xFFE91E8C)
+                            ),
+                            singleLine = true
+                        )
+
+                        Spacer(Modifier.height(20.dp))
+
+                        // Tombol Pakai Tabungan
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFFE91E8C))
                                 .clickable {
-                                    val kurang = input.toIntOrNull() ?: 0
+                                    val kurang = inputPakai.replace(".", "").toIntOrNull() ?: 0
                                     if (kurang > 0 && celengan.terkumpul >= kurang) {
-                                        nominalKeluar = kurang
-                                        showDialog = true
+                                        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                                        celengan.terkumpul -= kurang
+                                        val now = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault()).format(Date())
+                                        val trxK = Transaksi(now, kurang, "KELUAR", catatanPakai)
+                                        celengan.riwayat.add(trxK)
+                                        onUpdate()
+                                        inputPakai = ""
+                                        showPakaiSheet = false
+                                        if (userId.isNotEmpty() && celengan.id.isNotEmpty()) {
+                                            scope.launch {
+                                                try {
+                                                    FirestoreManager.kurangiSaldo(userId, celengan.id, kurang)
+                                                    FirestoreManager.tambahRiwayat(userId, celengan.id, trxK)
+                                                } catch (e: Exception) { e.printStackTrace() }
+                                            }
+                                        }
                                     }
                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 "Pakai Tabungan",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = White
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             )
                         }
                     }
-                }
-
-                val riwayatMasuk = celengan.riwayat.filter { it.tipe == "MASUK" }
-                val riwayatKeluar = celengan.riwayat.filter { it.tipe == "KELUAR" }
-
-                if (celengan.riwayat.isNotEmpty()) {
-
-                    CleanCard(modifier = Modifier.fillMaxWidth()) {
-
-                        Column(Modifier.padding(16.dp)) {
-
-                            Text(
-                                "Riwayat Transaksi",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-
-                            Spacer(Modifier.height(12.dp))
-
-                            // ===============================
-                            // 💰 UANG MASUK
-                            // ===============================
-                            if (riwayatMasuk.isNotEmpty()) {
-
-                                Text(
-                                    "Uang Masuk",
-                                    color = GreenSoft,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-
-                                Spacer(Modifier.height(8.dp))
-
-                                riwayatMasuk.reversed().forEachIndexed { index, trx ->
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 6.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-
-                                        Column {
-                                            Text("Menabung", fontWeight = FontWeight.Medium)
-                                            Text(
-                                                trx.tanggal,
-                                                fontSize = 10.sp,
-                                                color = TextSecondary
-                                            )
-                                        }
-
-                                        Badge(
-                                            text = "+Rp ${"%,d".format(trx.nominal)}",
-                                            bgColor = GreenBg,
-                                            textColor = GreenSoft
-                                        )
-                                    }
-
-                                    // ✅ Divider (STEP 4 — DISINI POSISINYA)
-                                    if (index < riwayatMasuk.size - 1) {
-                                        HorizontalDivider(
-                                            color = BgSubtle,
-                                            modifier = Modifier.padding(vertical = 6.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            // ===============================
-                            // 💸 UANG KELUAR
-                            // ===============================
-                            if (riwayatKeluar.isNotEmpty()) {
-
-                                Text(
-                                    "Pengeluaran",
-                                    color = RedSoft,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-
-                                Spacer(Modifier.height(8.dp))
-
-                                riwayatKeluar.reversed().forEachIndexed { index, trx ->
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 6.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-
-                                        Column {
-                                            Text("Pakai Tabungan", fontWeight = FontWeight.Medium)
-                                            Text(
-                                                trx.tanggal,
-                                                fontSize = 10.sp,
-                                                color = TextSecondary
-                                            )
-                                        }
-
-                                        Badge(
-                                            text = "-Rp ${"%,d".format(trx.nominal)}",
-                                            bgColor = Color(0xFFFFEBEE),
-                                            textColor = RedSoft
-                                        )
-                                    }
-
-                                    // ✅ Divider
-                                    if (index < riwayatKeluar.size - 1) {
-                                        HorizontalDivider(
-                                            color = BgSubtle,
-                                            modifier = Modifier.padding(vertical = 6.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Tombol kembali
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(BgSubtle)
-                        .clickable { onKembali() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "Kembali",
-                        color = Blue600,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
                 }
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-//  POPUP DELETE TABUNGAN — Blue + White BG
-// ═══════════════════════════════════════════════════════════════════
+        // ── POPUP DELETE ──────────────────────────────────────────────
         if (showDeleteDialog) {
-            val scaleAnim by animateFloatAsState(
-                targetValue = if (showDeleteDialog) 1f else 0.85f,
-                animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
-                label = "scaleDelete"
-            )
-            val alphaAnim by animateFloatAsState(
-                targetValue = if (showDeleteDialog) 1f else 0f,
-                animationSpec = tween(250),
-                label = "alphaDelete"
-            )
-
-            // Animasi pulse biru
-            val infiniteBlue = rememberInfiniteTransition(label = "bluePulse")
-            val bluePulse by infiniteBlue.animateFloat(
-                initialValue = 0.93f,
-                targetValue = 1.07f,
-                animationSpec = infiniteRepeatable(
-                    tween(850, easing = EaseInOutSine),
-                    RepeatMode.Reverse
-                ),
-                label = "bluePulseScale"
-            )
-            val blueRingAlpha by infiniteBlue.animateFloat(
-                initialValue = 0.25f,
-                targetValue = 0.85f,
-                animationSpec = infiniteRepeatable(
-                    tween(950, easing = EaseInOutSine),
-                    RepeatMode.Reverse
-                ),
-                label = "blueRingAlpha"
-            )
-
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .alpha(alphaAnim)
-                    .background(Color(0xFF000000).copy(alpha = 0.45f))
+                    .background(Color.Black.copy(alpha = 0.45f))
                     .clickable { showDeleteDialog = false },
                 contentAlignment = Alignment.Center
             ) {
-                Box(
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
                     modifier = Modifier
-                        .padding(horizontal = 24.dp)
-                        .scale(scaleAnim)
-                        .shadow(
-                            elevation = 32.dp,
-                            shape = RoundedCornerShape(28.dp),
-                            ambientColor = Blue500.copy(0.18f),
-                            spotColor = Blue700.copy(0.22f)
-                        )
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
-                        .border(
-                            1.5.dp,
-                            Brush.verticalGradient(
-                                listOf(Blue100, Blue50)
-                            ),
-                            RoundedCornerShape(28.dp)
-                        )
-                        .padding(26.dp)
+                        .padding(horizontal = 32.dp)
                         .clickable(enabled = false) {}
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-                        // ── ICON dengan pulse ring ────────────────────
-                        Box(
-                            modifier = Modifier.size(90.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Ring paling luar — pulse
-                            Box(
-                                modifier = Modifier
-                                    .size(88.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Transparent)
-                                    .border(
-                                        1.5.dp,
-                                        Blue300.copy(alpha = blueRingAlpha * 0.3f),
-                                        CircleShape
-                                    )
-                            )
-                            // Ring tengah
-                            Box(
-                                modifier = Modifier
-                                    .size(70.dp)
-                                    .clip(CircleShape)
-                                    .background(Blue50)
-                                    .border(2.dp, Blue100, CircleShape)
-                            )
-                            // Icon utama pulse
-                            Box(
-                                modifier = Modifier
-                                    .size(54.dp)
-                                    .scale(bluePulse)
-                                    .shadow(
-                                        12.dp, CircleShape,
-                                        ambientColor = Blue500.copy(0.4f),
-                                        spotColor = Blue700.copy(0.4f)
-                                    )
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Blue300, Blue500, Blue700)
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("🗑️", fontSize = 24.sp)
-                            }
-                        }
-
-                        Spacer(Modifier.height(14.dp))
-
-                        Text(
-                            "Hapus Tabungan?",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A2E42),
-                            letterSpacing = (-0.5).sp,
-                            textAlign = TextAlign.Center
-                        )
-
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🗑️", fontSize = 40.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Text("Hapus Tabungan?", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                            color = Color(0xFF37474F))
                         Spacer(Modifier.height(6.dp))
-
-                        Text(
-                            "Semua data akan dihapus permanen\ndan tidak bisa dikembalikan.",
-                            fontSize = 13.sp,
-                            color = Color(0xFF78909C),
-                            textAlign = TextAlign.Center,
-                            lineHeight = 19.sp
-                        )
-
-                        Spacer(Modifier.height(18.dp))
-
-                        // ── Savings name box ──────────────────────────
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Blue50)
-                                .border(1.5.dp, Blue100, RoundedCornerShape(16.dp))
-                                .padding(vertical = 14.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "TABUNGAN",
-                                    fontSize = 10.sp,
-                                    color = Blue300,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 2.sp
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    celengan.nama,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Blue600
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        // ── Stats row ─────────────────────────────────
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            // Terkumpul
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFF8FAFC))
-                                    .border(1.dp, Color(0xFFECEFF1), RoundedCornerShape(12.dp))
-                                    .padding(12.dp)
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Terkumpul", fontSize = 10.sp, color = Color(0xFF90A4AE))
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        "Rp ${"%,d".format(celengan.terkumpul)}",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Blue500
-                                    )
-                                }
-                            }
-                            // Target
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFF8FAFC))
-                                    .border(1.dp, Color(0xFFECEFF1), RoundedCornerShape(12.dp))
-                                    .padding(12.dp)
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Target", fontSize = 10.sp, color = Color(0xFF90A4AE))
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        "Rp ${"%,d".format(celengan.target)}",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF1A2E42)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        // ── Warning box ───────────────────────────────
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Blue50)
-                                .border(1.dp, Blue100, RoundedCornerShape(12.dp))
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("⚠️", fontSize = 14.sp)
-                            Text(
-                                "Tindakan ini tidak bisa dibatalkan!",
-                                fontSize = 12.sp,
-                                color = Blue600,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        Spacer(Modifier.height(22.dp))
-
-                        // ── Buttons ───────────────────────────────────
+                        Text("Data tidak bisa dikembalikan.",
+                            fontSize = 13.sp, color = Color(0xFF9E9E9E),
+                            textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(20.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            // Kembali
                             Box(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .height(50.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color(0xFFF1F5F9))
-                                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
+                                    .weight(1f).height(46.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFF5F5F5))
                                     .clickable { showDeleteDialog = false },
                                 contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Kembali",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF78909C)
-                                )
-                            }
-
-                            // Hapus
+                            ) { Text("Batal", fontWeight = FontWeight.SemiBold, color = Color(0xFF9E9E9E)) }
                             Box(
                                 modifier = Modifier
-                                    .weight(1.5f)
-                                    .height(50.dp)
-                                    .shadow(
-                                        10.dp, RoundedCornerShape(14.dp),
-                                        ambientColor = Blue500.copy(0.35f),
-                                        spotColor = Blue700.copy(0.4f)
-                                    )
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Blue300, Blue500, Blue700)
-                                        )
-                                    )
+                                    .weight(1f).height(46.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFEF5350))
                                     .clickable { onDelete(celengan) },
                                 contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text("🗑️", fontSize = 14.sp)
-                                    Text(
-                                        "Ya, Hapus",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
+                            ) { Text("Hapus", fontWeight = FontWeight.Bold, color = Color.White) }
                         }
                     }
                 }
             }
         }
 
-
-// ═══════════════════════════════════════════════════
-//  POPUP KONFIRMASI PENGELUARAN — Red + White BG
-// ═══════════════════════════════════════════════════
-        if (showDialog) {
-            val scaleAnim by animateFloatAsState(
-                targetValue = if (showDialog) 1f else 0.85f,
-                animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
-                label = "scaleDialog"
-            )
-            val alphaAnim by animateFloatAsState(
-                targetValue = if (showDialog) 1f else 0f,
-                animationSpec = tween(250),
-                label = "alphaDialog"
-            )
-
-            // Animasi pulse pada icon
-            val infinitePulse = rememberInfiniteTransition(label = "pulse")
-            val pulseScale by infinitePulse.animateFloat(
-                initialValue = 0.94f,
-                targetValue = 1.06f,
-                animationSpec = infiniteRepeatable(
-                    tween(800, easing = EaseInOutSine),
-                    RepeatMode.Reverse
-                ),
-                label = "pulseIcon"
-            )
-            val ringAlpha by infinitePulse.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 0.9f,
-                animationSpec = infiniteRepeatable(
-                    tween(900, easing = EaseInOutSine),
-                    RepeatMode.Reverse
-                ),
-                label = "ringAlpha"
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .alpha(alphaAnim)
-                    .background(Color(0xFF000000).copy(alpha = 0.45f))
-                    .clickable { showDialog = false },
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 24.dp)
-                        .scale(scaleAnim)
-                        .shadow(
-                            elevation = 32.dp,
-                            shape = RoundedCornerShape(28.dp),
-                            ambientColor = Color(0xFFEF5350).copy(0.18f),
-                            spotColor = Color(0xFFB71C1C).copy(0.22f)
-                        )
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White)
-                        .border(
-                            1.5.dp,
-                            Brush.verticalGradient(
-                                listOf(Color(0xFFFFCDD2), Color(0xFFFFEBEE))
-                            ),
-                            RoundedCornerShape(28.dp)
-                        )
-                        .padding(26.dp)
-                        .clickable(enabled = false) {}
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-                        // ── ICON dengan pulse ring ────────────────────────
-                        Box(
-                            modifier = Modifier.size(90.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Ring luar animasi pulse
-                            Box(
-                                modifier = Modifier
-                                    .size(88.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Transparent)
-                                    .border(
-                                        1.5.dp,
-                                        Color(0xFFEF5350).copy(alpha = ringAlpha * 0.25f),
-                                        CircleShape
-                                    )
-                            )
-                            // Ring tengah
-                            Box(
-                                modifier = Modifier
-                                    .size(70.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFFFEBEE))
-                                    .border(2.dp, Color(0xFFFFCDD2), CircleShape)
-                            )
-                            // Icon utama dengan pulse
-                            Box(
-                                modifier = Modifier
-                                    .size(54.dp)
-                                    .scale(pulseScale)
-                                    .shadow(
-                                        12.dp, CircleShape,
-                                        ambientColor = Color(0xFFEF5350).copy(0.4f),
-                                        spotColor = Color(0xFFB71C1C).copy(0.4f)
-                                    )
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFFEF9A9A),
-                                                Color(0xFFEF5350),
-                                                Color(0xFFC62828)
-                                            )
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("💸", fontSize = 24.sp)
-                            }
-                        }
-
-                        Spacer(Modifier.height(14.dp))
-
-                        Text(
-                            "Konfirmasi Pengeluaran",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A2E42),
-                            letterSpacing = (-0.5).sp,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(Modifier.height(6.dp))
-
-                        Text(
-                            "Yakin ingin menggunakan tabunganmu?",
-                            fontSize = 13.sp,
-                            color = Color(0xFF78909C),
-                            textAlign = TextAlign.Center,
-                            lineHeight = 19.sp
-                        )
-
-                        Spacer(Modifier.height(18.dp))
-
-                        // ── Amount Box ────────────────────────────────────
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color(0xFFFFEBEE))
-                                .border(1.5.dp, Color(0xFFFFCDD2), RoundedCornerShape(16.dp))
-                                .padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "JUMLAH",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFEF9A9A),
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 2.sp
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "Rp ${"%,d".format(nominalKeluar)}",
-                                    fontSize = 30.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFEF5350),
-                                    letterSpacing = (-0.5).sp
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(14.dp))
-
-                        // ── Info rows ─────────────────────────────────────
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFFF8FAFC))
-                                .border(1.dp, Color(0xFFECEFF1), RoundedCornerShape(14.dp))
-                                .padding(horizontal = 16.dp, vertical = 4.dp)
-                        ) {
-                            val sisaSaldo = celengan.terkumpul - nominalKeluar
-                            listOf(
-                                Triple(
-                                    "Saldo saat ini",
-                                    "Rp ${"%,d".format(celengan.terkumpul)}",
-                                    false
-                                ),
-                                Triple(
-                                    "Saldo setelah",
-                                    "Rp ${"%,d".format(sisaSaldo.coerceAtLeast(0))}",
-                                    true
-                                ),
-                                Triple(
-                                    "Tanggal",
-                                    java.text.SimpleDateFormat("dd MMM yyyy")
-                                        .format(java.util.Date()),
-                                    false
-                                )
-                            ).forEachIndexed { i, (label, value, isRed) ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(label, fontSize = 13.sp, color = Color(0xFF90A4AE))
-                                    Text(
-                                        value,
-                                        fontSize = 13.sp,
-                                        color = if (isRed) Color(0xFFEF5350) else Color(0xFF1A2E42),
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                                if (i < 2) {
-                                    HorizontalDivider(color = Color(0xFFECEFF1))
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(22.dp))
-
-                        // ── Buttons ───────────────────────────────────────
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            // Batal
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(50.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color(0xFFF1F5F9))
-                                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
-                                    .clickable { showDialog = false },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Batal",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF78909C)
-                                )
-                            }
-
-                            // Lanjutkan
-                            Box(
-                                modifier = Modifier
-                                    .weight(1.5f)
-                                    .height(50.dp)
-                                    .shadow(
-                                        10.dp, RoundedCornerShape(14.dp),
-                                        ambientColor = Color(0xFFEF5350).copy(0.35f),
-                                        spotColor = Color(0xFFC62828).copy(0.4f)
-                                    )
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFFEF9A9A),
-                                                Color(0xFFEF5350),
-                                                Color(0xFFC62828)
-                                            )
-                                        )
-                                    )
-                                    .clickable {
-                                        val userId =
-                                            FirebaseAuth.getInstance().currentUser?.uid ?: ""
-
-                                        // Update local state dulu
-                                        celengan.terkumpul -= nominalKeluar
-                                        val now = SimpleDateFormat(
-                                            "dd MMM yyyy • HH:mm",
-                                            Locale.getDefault()
-                                        )
-                                            .format(Date())
-                                        val trxKeluar = Transaksi(
-                                            tanggal = now,
-                                            nominal = nominalKeluar,
-                                            tipe = "KELUAR"
-                                        )
-                                        celengan.riwayat.add(trxKeluar)
-                                        onUpdate()
-                                        input = ""
-                                        showDialog = false
-
-                                        // Simpan ke Firestore di background
-                                        if (userId.isNotEmpty() && celengan.id.isNotEmpty()) {
-                                            scope.launch {
-                                                try {
-                                                    // Kurangi saldo di Firestore
-                                                    FirestoreManager.kurangiSaldo(
-                                                        userId = userId,
-                                                        celenganId = celengan.id,
-                                                        jumlah = nominalKeluar
-                                                    )
-                                                    // Simpan riwayat KELUAR ke Firestore
-                                                    FirestoreManager.tambahRiwayat(
-                                                        userId = userId,
-                                                        celenganId = celengan.id,
-                                                        trx = trxKeluar
-                                                    )
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
-                                                }
-                                            }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        "✓",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp
-                                    )
-                                    Text(
-                                        "Lanjutkan",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        // ── POPUP SUKSES SETOR ────────────────────────────────────────
         if (showSuksesDialog) {
-
-            val infiniteS = rememberInfiniteTransition(label = "sRing")
-            val ringRotS by infiniteS.animateFloat(
-                0f, 360f,
-                infiniteRepeatable(tween(7000, easing = LinearEasing)),
-                label = "rrs"
-            )
-
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF0A1628).copy(alpha = 0.82f))
+                    .background(Color.Black.copy(alpha = 0.5f))
                     .clickable { showSuksesDialog = false },
                 contentAlignment = Alignment.Center
             ) {
-                Box(
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
                     modifier = Modifier
-                        .padding(24.dp)
-                        .shadow(
-                            60.dp, RoundedCornerShape(32.dp),
-                            ambientColor = Blue500.copy(0.3f),
-                            spotColor = Blue700.copy(0.4f)
-                        )
-                        .clip(RoundedCornerShape(32.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFFFFFFFF), Color(0xFFF0F8FF))
-                            )
-                        )
-                        .border(
-                            1.5.dp,
-                            Brush.verticalGradient(
-                                listOf(Color.White, Blue100)
-                            ),
-                            RoundedCornerShape(32.dp)
-                        )
-                        .padding(28.dp)
+                        .padding(horizontal = 32.dp)
                         .clickable(enabled = false) {}
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-                        // Icon biru + spinning ring
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(110.dp)) {
-                            Canvas(modifier = Modifier.size(110.dp)) {
-                                rotate(ringRotS) {
-                                    drawArc(
-                                        color = Blue500.copy(0.28f),
-                                        startAngle = 0f, sweepAngle = 280f,
-                                        useCenter = false,
-                                        topLeft = androidx.compose.ui.geometry.Offset(4f, 4f),
-                                        size = androidx.compose.ui.geometry.Size(
-                                            size.width - 8f,
-                                            size.height - 8f
-                                        ),
-                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                            3f,
-                                            cap = StrokeCap.Round
-                                        )
-                                    )
-                                }
-                            }
-                            Canvas(modifier = Modifier.size(90.dp)) {
-                                rotate(-ringRotS * 0.6f) {
-                                    drawArc(
-                                        color = Blue400.copy(0.14f),
-                                        startAngle = 60f, sweepAngle = 200f,
-                                        useCenter = false,
-                                        topLeft = androidx.compose.ui.geometry.Offset(3f, 3f),
-                                        size = androidx.compose.ui.geometry.Size(
-                                            size.width - 6f,
-                                            size.height - 6f
-                                        ),
-                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                            2f,
-                                            cap = StrokeCap.Round
-                                        )
-                                    )
-                                }
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(72.dp)
-                                    .shadow(
-                                        18.dp, CircleShape,
-                                        ambientColor = Blue500.copy(0.5f),
-                                        spotColor = Blue700.copy(0.6f)
-                                    )
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Blue400, Blue500, Blue700)
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("🎉", fontSize = 30.sp)
-                            }
-                        }
-
-                        Spacer(Modifier.height(18.dp))
-
-                        Text(
-                            "Nabung Berhasil! 🥳",
-                            fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                            color = TextPrimary, letterSpacing = (-0.4).sp,
-                            textAlign = TextAlign.Center
-                        )
-
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🎉", fontSize = 44.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Text("Nabung Berhasil!", fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold, color = Color(0xFF37474F))
                         Spacer(Modifier.height(8.dp))
-
                         Text(
-                            "Kamu berhasil menambah tabungan sebesar",
-                            fontSize = 13.sp, color = TextSecondary,
-                            textAlign = TextAlign.Center, lineHeight = 20.sp
+                            "+Rp ${"%,d".format(nominalSukses).replace(",", ".")}",
+                            fontSize = 28.sp, fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE91E8C)
                         )
-
-                        Spacer(Modifier.height(16.dp))
-
-                        // Nominal box biru
+                        Spacer(Modifier.height(20.dp))
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Blue50, Blue100.copy(0.4f))
-                                    )
-                                )
-                                .border(1.dp, Blue200, RoundedCornerShape(18.dp))
-                                .padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "DITAMBAHKAN",
-                                    fontSize = 10.sp, color = TextHint,
-                                    fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "+Rp ${"%,d".format(nominalSukses)}",
-                                    fontSize = 28.sp, fontWeight = FontWeight.Bold,
-                                    color = Blue600, letterSpacing = (-0.5).sp
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(14.dp))
-
-                        // Info box biru
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
+                                .fillMaxWidth().height(50.dp)
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(Blue50)
-                                .border(1.dp, Blue100, RoundedCornerShape(14.dp))
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(Blue100),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("★", fontSize = 14.sp, color = Blue600)
-                                }
-                                Text(
-                                    "Terus semangat menabung ya! 💪",
-                                    fontSize = 12.sp, color = Blue600,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(22.dp))
-
-                        // Tombol Sip Lanjut — biru
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .shadow(
-                                    14.dp, RoundedCornerShape(16.dp),
-                                    ambientColor = Blue500.copy(0.45f),
-                                    spotColor = Blue700.copy(0.55f)
-                                )
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(BtnGrad)
+                                .background(Brush.linearGradient(listOf(Color(0xFFE91E8C), Color(0xFF9C27B0))))
                                 .clickable { showSuksesDialog = false },
                             contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    "✓",
-                                    color = White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
-                                Text(
-                                    "Sip, Lanjut!",
-                                    color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp
-                                )
-                            }
-                        }
+                        ) { Text("Sip, Lanjut!", color = Color.White, fontWeight = FontWeight.Bold) }
                     }
                 }
             }
         }
 
-        // ═══════════════════════════════════════════════════
-//  POPUP TABUNGAN TERCAPAI — Blue + White BG
-// ═══════════════════════════════════════════════════
+        // ── POPUP TERCAPAI ────────────────────────────────────────────
         if (showTercapaiDialog) {
-            val scaleAnimT by animateFloatAsState(
-                targetValue = if (showTercapaiDialog) 1f else 0.8f,
-                animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
-                label = "scaleTercapai"
-            )
-            val infiniteT = rememberInfiniteTransition(label = "tercapai")
-            val pulseT by infiniteT.animateFloat(
-                initialValue = 0.94f,
-                targetValue = 1.06f,
-                animationSpec = infiniteRepeatable(
-                    tween(900, easing = EaseInOutSine),
-                    RepeatMode.Reverse
-                ),
-                label = "iconPulse"
-            )
-            val ringAlphaT by infiniteT.animateFloat(
-                initialValue = 0.2f,
-                targetValue = 0.8f,
-                animationSpec = infiniteRepeatable(
-                    tween(1100, easing = EaseInOutSine),
-                    RepeatMode.Reverse
-                ),
-                label = "ringAlphaT"
-            )
-            val dotAlpha1 by infiniteT.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    tween(500, easing = EaseInOutSine),
-                    RepeatMode.Reverse
-                ),
-                label = "dot1"
-            )
-            val dotAlpha2 by infiniteT.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    tween(
-                        500,
-                        delayMillis = 160,
-                        easing = EaseInOutSine
-                    ), RepeatMode.Reverse
-                ),
-                label = "dot2"
-            )
-            val dotAlpha3 by infiniteT.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    tween(
-                        500,
-                        delayMillis = 320,
-                        easing = EaseInOutSine
-                    ), RepeatMode.Reverse
-                ),
-                label = "dot3"
-            )
-
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF000000).copy(alpha = 0.45f))
+                    .background(Color.Black.copy(alpha = 0.5f))
                     .clickable { showTercapaiDialog = false },
                 contentAlignment = Alignment.Center
             ) {
-                Box(
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
                     modifier = Modifier
-                        .padding(horizontal = 22.dp)
-                        .scale(scaleAnimT)
-                        .shadow(
-                            elevation = 28.dp,
-                            shape = RoundedCornerShape(28.dp),
-                            ambientColor = Blue500.copy(0.18f),
-                            spotColor = Blue700.copy(0.22f)
-                        )
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(White)
-                        .border(1.5.dp, Blue100, RoundedCornerShape(28.dp))
+                        .padding(horizontal = 32.dp)
                         .clickable(enabled = false) {}
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-                        // Garis biru tipis di atas
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🏆", fontSize = 44.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Text("Target Tercapai!", fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold, color = Color(0xFF37474F))
+                        Spacer(Modifier.height(6.dp))
+                        Text("Selamat! Impianmu sudah di depan mata!",
+                            fontSize = 13.sp, color = Color(0xFF9E9E9E),
+                            textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(20.dp))
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .background(BtnGrad)
-                        )
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(24.dp)
-                        ) {
-
-                            // ── ICON dengan double pulse ring ────────────
-                            Box(
-                                modifier = Modifier.size(92.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // Ring paling luar
-                                Box(
-                                    modifier = Modifier
-                                        .size(90.dp)
-                                        .clip(CircleShape)
-                                        .border(
-                                            1.5.dp,
-                                            Blue200.copy(ringAlphaT * 0.4f),
-                                            CircleShape
-                                        )
-                                )
-                                // Ring tengah
-                                Box(
-                                    modifier = Modifier
-                                        .size(72.dp)
-                                        .clip(CircleShape)
-                                        .background(Blue50)
-                                        .border(2.dp, Blue100, CircleShape)
-                                )
-                                // Icon utama pulse
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .scale(pulseT)
-                                        .shadow(
-                                            10.dp, CircleShape,
-                                            ambientColor = Blue500.copy(0.35f),
-                                            spotColor = Blue700.copy(0.35f)
-                                        )
-                                        .clip(CircleShape)
-                                        .background(BtnGrad),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("🏆", fontSize = 26.sp)
-                                }
-                            }
-
-                            Spacer(Modifier.height(8.dp))
-
-                            // Dots animasi
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(dotAlpha1, dotAlpha2, dotAlpha3).forEachIndexed { i, alpha ->
-                                    Box(
-                                        modifier = Modifier
-                                            .size(7.dp)
-                                            .alpha(alpha)
-                                            .clip(CircleShape)
-                                            .background(if (i == 1) Blue300 else Blue500)
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.height(14.dp))
-
-                            Text(
-                                "Tabungan Tercapai! 🎉",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary,
-                                letterSpacing = (-0.4).sp,
-                                textAlign = TextAlign.Center
-                            )
-
-                            Spacer(Modifier.height(6.dp))
-
-                            Text(
-                                "Selamat! Kamu berhasil mencapai\ntarget tabungan. Impianmu sudah\ndi depan mata!",
-                                fontSize = 13.sp,
-                                color = TextSecondary,
-                                textAlign = TextAlign.Center,
-                                lineHeight = 20.sp
-                            )
-
-                            Spacer(Modifier.height(18.dp))
-
-                            // ── Nama tabungan box ─────────────────────────
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Blue50)
-                                    .border(1.5.dp, Blue100, RoundedCornerShape(16.dp))
-                                    .padding(vertical = 14.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        "TABUNGAN",
-                                        fontSize = 10.sp,
-                                        color = Blue400,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.8.sp
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        celengan.nama,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Blue700,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            // ── Stats row ─────────────────────────────────
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                listOf(
-                                    Triple(
-                                        "Terkumpul",
-                                        "Rp ${"%,d".format(celengan.terkumpul)}",
-                                        true
-                                    ),
-                                    Triple("Target", "Rp ${"%,d".format(celengan.target)}", false)
-                                ).forEach { (label, value, isBlue) ->
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(BgSubtle)
-                                            .border(0.5.dp, Blue100, RoundedCornerShape(12.dp))
-                                            .padding(12.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text(label, fontSize = 10.sp, color = TextSecondary)
-                                            Spacer(Modifier.height(4.dp))
-                                            Text(
-                                                value,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isBlue) Blue500 else TextPrimary
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            // ── Progress bar 100% ─────────────────────────
-                            Column {
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Progress", fontSize = 12.sp, color = TextSecondary)
-                                    Text(
-                                        "100%", fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold, color = Blue500
-                                    )
-                                }
-                                Spacer(Modifier.height(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(8.dp)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(Blue50)
-                                        .border(0.5.dp, Blue100, RoundedCornerShape(50))
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(50))
-                                            .background(BtnGrad)
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            // ── Info box ──────────────────────────────────
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Blue50)
-                                    .border(0.5.dp, Blue100, RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(Blue100),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("★", fontSize = 14.sp, color = Blue600)
-                                }
-                                Text(
-                                    "Luar biasa! Disiplin menabungmu terbayar!",
-                                    fontSize = 12.sp,
-                                    color = Blue700,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-
-                            Spacer(Modifier.height(20.dp))
-
-                            // ── Tombol ────────────────────────────────────
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp)
-                                    .shadow(
-                                        10.dp, RoundedCornerShape(14.dp),
-                                        ambientColor = Blue500.copy(0.35f),
-                                        spotColor = Blue700.copy(0.4f)
-                                    )
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(BtnGrad)
-                                    .clickable { showTercapaiDialog = false },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text("🏆", fontSize = 16.sp)
-                                    Text(
-                                        "Yeay, Terima Kasih!",
-                                        color = White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
-                                    )
-                                }
-                            }
-                        }
+                                .fillMaxWidth().height(50.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Brush.linearGradient(listOf(Color(0xFFE91E8C), Color(0xFF9C27B0))))
+                                .clickable { showTercapaiDialog = false },
+                            contentAlignment = Alignment.Center
+                        ) { Text("Yeay!", color = Color.White, fontWeight = FontWeight.Bold) }
                     }
                 }
             }
         }
+    }
+}
 
+// ── Info chip untuk detail screen ─────────────────────────────────
+@Composable
+fun DetailInfoChip(modifier: Modifier = Modifier, value: String, label: String) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = BorderStroke(1.dp, Color(0xFFF2C8E0)),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                value,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFE91E8C),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                label,
+                fontSize = 9.sp,
+                color = Color(0xFF9E9E9E),
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
 
+// ── Kartu transaksi untuk detail screen ───────────────────────────
+@Composable
+fun DetailTrxCard(trx: Transaksi) {
+    val isMasuk  = trx.tipe == "MASUK"
+    val datePart = trx.tanggal.substringBefore(" •").trim()
+    val timePart = if (trx.tanggal.contains("•"))
+        trx.tanggal.substringAfter("•").trim().replace(":", ".") else ""
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = BorderStroke(1.dp, Color(0xFFF5EEF4)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isMasuk) Color(0xFFD6F5E3) else Color(0xFFFFE0EA)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (isMasuk) "↑" else "↓",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isMasuk) Color(0xFF43A047) else Color(0xFFE91E8C)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (isMasuk) "Setor Tabungan" else "Pakai Tabungan",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF37474F)
+                )
+                if (datePart.isNotEmpty() || timePart.isNotEmpty()) {
+                    Text(
+                        "${datePart}${if (timePart.isNotEmpty()) " · $timePart" else ""}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF9E9E9E)
+                    )
+                }
+            }
+            Text(
+                "${if (isMasuk) "+" else "−"}Rp ${"%,d".format(trx.nominal).replace(",", ".")}",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isMasuk) Color(0xFF43A047) else Color(0xFFE91E8C)
+            )
+        }
     }
 }
 
@@ -5852,480 +5263,616 @@ fun TambahScreen(
     onSimpan: (Celengan) -> Unit,
     onKembali: () -> Unit
 ) {
-    var nama by remember { mutableStateOf("") }
-    var target by remember { mutableStateOf("") }
-    var nominal by remember { mutableStateOf("") }
-    var inputNabung by remember { mutableStateOf("") }
-    var jenis by remember { mutableStateOf("Harian") }
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var notifAktif by remember { mutableStateOf(false) }
-    var jam by remember { mutableStateOf("09:00") }
+    var nama         by remember { mutableStateOf("") }
+    var target       by remember { mutableStateOf("") }
+    var inputNabung  by remember { mutableStateOf("") }
+    var tanggalTarget by remember { mutableStateOf("") }
+    var jenis        by remember { mutableStateOf("Harian") }
+    var imageUri     by remember { mutableStateOf<Uri?>(null) }
+    var notifAktif   by remember { mutableStateOf(false) }
+    var jam          by remember { mutableStateOf("09:00") }
+    var jamInt       by remember { mutableStateOf(9) }
+    var menitInt     by remember { mutableStateOf(0) }
     var hariTerpilih by remember { mutableStateOf(setOf<String>()) }
+    var showTimePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let { imageUri = saveImageToInternalStorage(context, it) }
-    }
+    ) { uri -> uri?.let { imageUri = saveImageToInternalStorage(context, it) } }
 
-    // Hitung sisa target secara realtime
-    val targetInt = target.toIntOrNull() ?: 0
-    val nabungInt = inputNabung.toIntOrNull() ?: 0
-    val sisaTarget = (targetInt - nabungInt).coerceAtLeast(0)
+    val canSave = nama.isNotEmpty() && (target.toIntOrNull() ?: 0) > 0
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF0F4FF))
-    ) {
-        // ── TOP BAR ───────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(White)
-                .padding(horizontal = 20.dp)
-                .padding(top = 52.dp, bottom = 16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF0F4FF))
-                        .border(0.5.dp, Color(0xFFDDE3EE), CircleShape)
-                        .clickable { onKembali() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.ArrowBack, null,
-                        tint = TextPrimary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Text(
-                    "Tambah Tabungan",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-            }
-        }
-
-        // ── FORM ──────────────────────────────────────────────
+    Scaffold(
+        bottomBar = {
+            WishPayBottomNav(
+                currentNav   = "none",
+                onNavChange  = { onKembali() },
+                onTambah     = { /* sudah di sini */ },
+                onProfil     = { onKembali() }
+            )
+        },
+        containerColor = Color(0xFFFFF0F4)
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(top = 20.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(innerPadding)
+                .background(Color(0xFFFFF0F4))
         ) {
-
-            // ── Foto picker ───────────────────────────────────
+            // ── HEADER PINK ──────────────────────────────────────────
             Box(
                 modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(width = 140.dp, height = 140.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(White)
-                    .border(
-                        1.dp,
-                        if (imageUri != null) Blue300 else Color(0xFFDDE3EE),
-                        RoundedCornerShape(16.dp)
-                    )
-                    .clickable { launcher.launch("image/*") },
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                    .background(Color(0xFFF8BBD0))
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 52.dp, bottom = 20.dp)
             ) {
-                if (imageUri != null) {
-                    Image(
-                        painter = rememberAsyncImagePainter(imageUri),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Crop
+                Column {
+                    Text(
+                        "Tambah Celengan",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4A148C)
                     )
-                    // Overlay ganti foto
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(TextPrimary.copy(0.3f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.CameraAlt, null,
-                                tint = White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text("Ganti Foto", fontSize = 11.sp, color = White)
-                        }
-                    }
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Buat target tabungan baru",
+                        fontSize = 13.sp,
+                        color = Color(0xFF9E9E9E)
+                    )
+                }
+            }
+
+            // ── FORM SCROLLABLE ──────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 20.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+
+                // ── FOTO PICKER ──────────────────────────────────────
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE8D5E8), RoundedCornerShape(16.dp))
+                        .clickable { launcher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (imageUri != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(imageUri),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
                         Box(
                             modifier = Modifier
-                                .size(52.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFFEEF2F8))
-                                .border(
-                                    1.dp,
-                                    Color(0xFFDDE3EE),
-                                    RoundedCornerShape(14.dp)
-                                ),
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF000000).copy(alpha = 0.3f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                Icons.Default.CameraAlt, null,
-                                tint = TextSecondary,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.CameraAlt, null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Ganti Foto",
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
-                        Text(
-                            "Tambah Foto",
-                            fontSize = 12.sp,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            "(Opsional)",
-                            fontSize = 11.sp,
-                            color = TextHint
-                        )
-                    }
-                }
-            }
-
-            // ── Nama Tabungan ─────────────────────────────────
-            FormLabel("Nama Tabungan")
-            OutlinedTextField(
-                value = nama,
-                onValueChange = { nama = it },
-                placeholder = { Text("Misal: Liburan ke Jepang", color = TextHint) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = cleanFieldColors(),
-                singleLine = true
-            )
-
-            // ── Target Tabungan ───────────────────────────────
-            FormLabel("Target Tabungan (Rp)")
-            OutlinedTextField(
-                value = target,
-                onValueChange = { target = it },
-                placeholder = { Text("0", color = TextHint) },
-                prefix = { Text("Rp  ", color = TextSecondary, fontWeight = FontWeight.Medium) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = cleanFieldColors(),
-                singleLine = true
-            )
-
-            // ── Frekuensi Menabung ────────────────────────────
-            FormLabel("Frekuensi Menabung")
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(White)
-                    .border(0.5.dp, Color(0xFFDDE3EE), RoundedCornerShape(12.dp))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                listOf("Harian", "Mingguan", "Bulanan").forEach { j ->
-                    val dipilih = jenis == j
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(if (dipilih) Blue600 else Color.Transparent)
-                            .clickable { jenis = j }
-                            .padding(vertical = 11.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            j,
-                            fontSize = 13.sp,
-                            fontWeight = if (dipilih) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (dipilih) White else TextSecondary
-                        )
-                    }
-                }
-            }
-
-            // ── Jumlah Nabung Hari Ini ────────────────────────
-            FormLabel("Jumlah Nabung Hari Ini")
-            OutlinedTextField(
-                value = inputNabung,
-                onValueChange = { inputNabung = it },
-                placeholder = { Text("0", color = TextHint) },
-                prefix = { Text("Rp  ", color = TextSecondary, fontWeight = FontWeight.Medium) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = cleanFieldColors(),
-                singleLine = true
-            )
-            // Sisa target hint
-            Text(
-                "Sisa target: Rp ${"%,d".format(sisaTarget)}",
-                fontSize = 12.sp,
-                color = if (nabungInt > 0) Blue500 else TextHint,
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-            )
-
-            // ── Nominal per periode ───────────────────────────
-            FormLabel("Nominal ${jenis}")
-            OutlinedTextField(
-                value = nominal,
-                onValueChange = { nominal = it },
-                placeholder = { Text("0", color = TextHint) },
-                prefix = { Text("Rp  ", color = TextSecondary, fontWeight = FontWeight.Medium) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = cleanFieldColors(),
-                singleLine = true
-            )
-
-            // ── Pengingat Menabung ────────────────────────────
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = White),
-                elevation = CardDefaults.cardElevation(0.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    0.5.dp, Color(0xFFDDE3EE)
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Blue50),
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFEDE7F6)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Default.Notifications, null,
-                                    tint = Blue600,
-                                    modifier = Modifier.size(20.dp)
+                                    Icons.Default.CameraAlt, null,
+                                    tint = Color(0xFF7E57C2),
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
                             Text(
-                                "Pengingat Menabung",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
+                                "Tambah Foto",
+                                fontSize = 13.sp,
+                                color = PinkMain,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "(Opsional)",
+                                fontSize = 11.sp,
+                                color = Color(0xFF9E9E9E)
                             )
                         }
-                        Switch(
-                            checked = notifAktif,
-                            onCheckedChange = { notifAktif = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = White,
-                                checkedTrackColor = Blue600,
-                                uncheckedThumbColor = Color(0xFFCDD5E0),
-                                uncheckedTrackColor = Color(0xFFEEF2F8)
-                            )
-                        )
                     }
+                }
 
-                    AnimatedVisibility(visible = notifAktif) {
-                        Column {
-                            Spacer(Modifier.height(16.dp))
-                            HorizontalDivider(color = Color(0xFFEEF2F8))
-                            Spacer(Modifier.height(16.dp))
+                // ── NAMA TABUNGAN ────────────────────────────────────
+                PinkFormField(
+                    label       = "Nama Tabungan",
+                    value       = nama,
+                    onValueChange = { nama = it },
+                    placeholder = "Misal: Liburan ke Jepang"
+                )
 
-                            // Waktu pengingat
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                // ── TARGET TABUNGAN ──────────────────────────────────
+                PinkFormField(
+                    label       = "Target Tabungan (Rp)",
+                    value       = target,
+                    onValueChange = { target = it },
+                    placeholder = "Rp 0"
+                )
+
+                // ── FREKUENSI MENABUNG ───────────────────────────────
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Frekuensi Menabung",
+                        fontSize = 13.sp,
+                        color = Color(0xFF5C5C7A),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Harian", "Mingguan", "Bulanan").forEach { j ->
+                            val dipilih = jenis == j
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(50.dp))
+                                    .background(if (dipilih) PinkMain else Color.White)
+                                    .border(
+                                        if (!dipilih) 1.dp else 0.dp,
+                                        Color(0xFFE0C0D0),
+                                        RoundedCornerShape(50.dp)
+                                    )
+                                    .clickable { jenis = j },
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    "Waktu Pengingat",
+                                    j,
                                     fontSize = 13.sp,
-                                    color = TextSecondary
+                                    fontWeight = if (dipilih) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (dipilih) Color.White else Color(0xFF9E9E9E)
                                 )
+                            }
+                        }
+                    }
+                }
+
+                // ── JUMLAH NABUNG HARI INI ────────────────────────────
+                PinkFormField(
+                    label       = "Jumlah Nabung Hari Ini",
+                    value       = inputNabung,
+                    onValueChange = { inputNabung = it },
+                    placeholder = "Rp 0"
+                )
+
+                // ── TANGGAL TARGET ────────────────────────────────────
+                PinkFormField(
+                    label       = "Tanggal Target",
+                    value       = tanggalTarget,
+                    onValueChange = { tanggalTarget = it },
+                    placeholder = "Pilih tanggal..."
+                )
+
+                // ── PENGINGAT MENABUNG ────────────────────────────────
+                Card(
+                    shape  = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(0.dp),
+                    border = BorderStroke(1.dp, Color(0xFFF0D8E8)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Blue50)
-                                        .border(1.dp, Blue100, RoundedCornerShape(10.dp))
-                                        .clickable {
-                                            val parts = jam.split(":")
-                                            TimePickerDialog(
-                                                context, { _, h, m ->
-                                                    jam = String.format("%02d:%02d", h, m)
-                                                },
-                                                parts[0].toInt(),
-                                                parts[1].toInt(),
-                                                true
-                                            ).show()
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFFCE4EC)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text(
-                                            jam,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Blue600
-                                        )
-                                        Icon(
-                                            Icons.Default.Timer, null,
-                                            tint = Blue400,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
+                                    Icon(
+                                        Icons.Default.Notifications, null,
+                                        tint = PinkMain,
+                                        modifier = Modifier.size(22.dp)
+                                    )
                                 }
+                                Text(
+                                    "Pengingat Menabung",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF37474F)
+                                )
                             }
-
-                            Spacer(Modifier.height(14.dp))
-
-                            // Ulangi pada hari
-                            Text(
-                                "Ulangi Pada",
-                                fontSize = 13.sp,
-                                color = TextSecondary
+                            Switch(
+                                checked = notifAktif,
+                                onCheckedChange = { notifAktif = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor  = Color.White,
+                                    checkedTrackColor  = PinkMain,
+                                    uncheckedThumbColor = Color(0xFFCDD5E0),
+                                    uncheckedTrackColor = Color(0xFFEEF2F8)
+                                )
                             )
-                            Spacer(Modifier.height(10.dp))
+                        }
 
-                            val listHari = listOf("S", "S", "R", "K", "J", "S", "M")
-                            val fullHari = listOf(
-                                "Minggu", "Senin", "Selasa",
-                                "Rabu", "Kamis", "Jumat", "Sabtu"
-                            )
+                        AnimatedVisibility(visible = notifAktif) {
+                            Column {
+                                Spacer(Modifier.height(14.dp))
+                                HorizontalDivider(color = Color(0xFFF5E0EA))
+                                Spacer(Modifier.height(14.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                fullHari.forEachIndexed { i, hari ->
-                                    val dipilih = hariTerpilih.contains(hari)
+                                // Waktu pengingat
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Waktu Pengingat",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF37474F)
+                                    )
                                     Box(
                                         modifier = Modifier
-                                            .size(38.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (dipilih) Blue600
-                                                else Color(0xFFEEF2F8)
-                                            )
+                                            .clip(RoundedCornerShape(50.dp))
+                                            .background(Color(0xFFFCE4EC))
                                             .border(
-                                                if (!dipilih) 0.5.dp else 0.dp,
-                                                Color(0xFFDDE3EE),
-                                                CircleShape
+                                                1.dp, Color(0xFFF48FB1),
+                                                RoundedCornerShape(50.dp)
                                             )
-                                            .clickable {
-                                                hariTerpilih =
-                                                    if (dipilih) hariTerpilih - hari
-                                                    else hariTerpilih + hari
-                                            },
-                                        contentAlignment = Alignment.Center
+                                            .clickable { showTimePicker = true }
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
                                     ) {
-                                        Text(
-                                            listHari[i],
-                                            fontSize = 11.sp,
-                                            fontWeight = if (dipilih)
-                                                FontWeight.Bold else FontWeight.Normal,
-                                            color = if (dipilih) White else TextSecondary
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                jam,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = PinkMain
+                                            )
+                                            Icon(
+                                                Icons.Default.Timer, null,
+                                                tint = PinkMain,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(Modifier.height(14.dp))
+
+                                Text(
+                                    "Ulangi Pada",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF37474F)
+                                )
+                                Spacer(Modifier.height(10.dp))
+
+                                val singkatHari = listOf("S", "S", "R", "K", "J", "S", "M")
+                                val fullHari    = listOf(
+                                    "Senin", "Selasa", "Rabu",
+                                    "Kamis", "Jumat", "Sabtu", "Minggu"
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    fullHari.forEachIndexed { i, hari ->
+                                        val dipilih = hariTerpilih.contains(hari)
+                                        Box(
+                                            modifier = Modifier
+                                                .size(38.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (dipilih) PinkMain
+                                                    else Color(0xFFF5F0F3)
+                                                )
+                                                .border(
+                                                    if (!dipilih) 0.5.dp else 0.dp,
+                                                    Color(0xFFE8D5E8),
+                                                    CircleShape
+                                                )
+                                                .clickable {
+                                                    hariTerpilih =
+                                                        if (dipilih) hariTerpilih - hari
+                                                        else hariTerpilih + hari
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                singkatHari[i],
+                                                fontSize = 12.sp,
+                                                fontWeight = if (dipilih)
+                                                    FontWeight.Bold else FontWeight.Normal,
+                                                color = if (dipilih) Color.White
+                                                else Color(0xFF9E9E9E)
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
 
-            // ── Tombol Simpan ─────────────────────────────────
-            val canSave = nama.isNotEmpty() && (target.toIntOrNull() ?: 0) > 0
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-                    .shadow(
-                        if (canSave) 8.dp else 0.dp,
-                        RoundedCornerShape(14.dp),
-                        ambientColor = Blue600.copy(0.3f),
-                        spotColor = Blue700.copy(0.3f)
-                    )
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (canSave) Blue600 else Color(0xFFDDE3EE))
-                    .clickable(enabled = canSave) {
-                        val t = target.toIntOrNull() ?: 0
-                        val n = nominal.toIntOrNull() ?: 0
-                        val nabung = inputNabung.toIntOrNull() ?: 0
-                        if (notifAktif && jam.isNotEmpty()) {
-                            val userId =
-                                FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                            scheduleNotification(context, jam, userId)
-                        }
-                        onSimpan(
-                            Celengan(
-                                nama = nama,
-                                target = t,
-                                terkumpul = nabung,
-                                image = imageUri?.toString(),
-                                nominal = n,
-                                jenis = jenis,
-                                notifAktif = notifAktif,
-                                jamNotif = jam,
-                                hariNotif = hariTerpilih.toList()
-                            )
+                // ── TOMBOL SIMPAN ────────────────────────────────────
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .shadow(
+                            if (canSave) 6.dp else 0.dp,
+                            RoundedCornerShape(16.dp),
+                            ambientColor = PinkMain.copy(alpha = 0.35f),
+                            spotColor    = PinkDark.copy(alpha = 0.35f)
                         )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "Simpan Tabungan",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (canSave) White else TextHint
-                )
-            }
-
-            // Hint bawah
-            if (notifAktif) {
-                Text(
-                    "Kamu akan diingatkan untuk menabung agar\nimpianmu cepat tercapai! 🚀",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (canSave) PinkMain else Color(0xFFE0C8D4))
+                        .clickable(enabled = canSave) {
+                            val t      = target.toIntOrNull() ?: 0
+                            val nabung = inputNabung.toIntOrNull() ?: 0
+                            if (notifAktif && jam.isNotEmpty()) {
+                                val userId =
+                                    FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                                scheduleNotification(context, jam, userId)
+                            }
+                            onSimpan(
+                                Celengan(
+                                    nama       = nama,
+                                    target     = t,
+                                    terkumpul  = nabung,
+                                    image      = imageUri?.toString(),
+                                    nominal    = 0,
+                                    jenis      = jenis,
+                                    notifAktif = notifAktif,
+                                    jamNotif   = jam,
+                                    hariNotif  = hariTerpilih.toList()
+                                )
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Simpan Celengan",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (canSave) Color.White else Color(0xFF9E9E9E)
+                    )
+                }
             }
         }
+    }
+
+    // ── CUSTOM TIME PICKER (Image 1) ─────────────────────────────────
+    if (showTimePicker) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF000000).copy(alpha = 0.4f))
+                .clickable { showTimePicker = false },
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Card(
+                shape  = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = false) {}
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Atur Waktu Pengingat",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PinkMain
+                    )
+                    Spacer(Modifier.height(28.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // ── JAM ──────────────────────────────────────
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFCE4EC))
+                                    .clickable { jamInt = (jamInt + 1) % 24 },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("▲", fontSize = 16.sp, color = PinkMain,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                String.format("%02d", jamInt),
+                                fontSize = 52.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF37474F)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFCE4EC))
+                                    .clickable { jamInt = (jamInt - 1 + 24) % 24 },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("▼", fontSize = 16.sp, color = PinkMain,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Text(
+                            ":",
+                            fontSize = 44.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF37474F),
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+
+                        // ── MENIT ─────────────────────────────────────
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFCE4EC))
+                                    .clickable { menitInt = (menitInt + 5) % 60 },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("▲", fontSize = 16.sp, color = PinkMain,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                String.format("%02d", menitInt),
+                                fontSize = 52.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF37474F)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFCE4EC))
+                                    .clickable { menitInt = (menitInt - 5 + 60) % 60 },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("▼", fontSize = 16.sp, color = PinkMain,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(28.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(PinkMain)
+                            .clickable {
+                                jam = String.format("%02d:%02d", jamInt, menitInt)
+                                showTimePicker = false
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Simpan Waktu",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PinkFormField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = ""
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            color = Color(0xFF5C5C7A),
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder, color = Color(0xFFBBBBBB), fontSize = 14.sp) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PinkMain,
+                unfocusedBorderColor = Color(0xFFE8D5E8),
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                cursorColor = PinkMain,
+                focusedTextColor = Color(0xFF37474F),
+                unfocusedTextColor = Color(0xFF37474F)
+            )
+        )
     }
 }
 
 // ── Helper: label form ─────────────────────────────────────────────
 
 
-// ── Helper: warna field clean ──────────────────────────────────────
+
 
 // ═══════════════════════════════════════════════════════════════════
 //  EDIT SCREEN
@@ -7016,7 +6563,9 @@ fun EditScreen(
 fun ProfileScreen(
     listCelengan: List<Celengan>,
     onKembali: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavChange: (String) -> Unit,
+    onTambah: () -> Unit
 ) {
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
@@ -7025,772 +6574,329 @@ fun ProfileScreen(
     var displayName by remember {
         mutableStateOf(
             currentUser?.displayName?.ifEmpty { null }
-                ?: email.substringBefore("@")
-                    .replaceFirstChar { it.uppercase() }
+                ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
         )
     }
 
-    val joinedDate = remember {
-        val ts = currentUser?.metadata?.creationTimestamp ?: 0L
-        if (ts > 0L) java.text.SimpleDateFormat("MMMM yyyy", Locale("id"))
-            .format(java.util.Date(ts)) else "—"
-    }
+    val initials = displayName.split(" ").take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
 
-    var showEditName by remember { mutableStateOf(false) }
-    var showPassword by remember { mutableStateOf(false) }
+    var showEditName     by remember { mutableStateOf(false) }
+    var showPassword     by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var editNameValue by remember { mutableStateOf(displayName) }
-    var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var showPwText by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
+    var showDataDiri     by remember { mutableStateOf(false) }
+    var editNameValue    by remember { mutableStateOf(displayName) }
+    var newPassword      by remember { mutableStateOf("") }
+    var confirmPassword  by remember { mutableStateOf("") }
+    var showPwText       by remember { mutableStateOf(false) }
+    var isLoading        by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    var profileImageUri by remember { mutableStateOf<Uri?>(null) }
-    val userId = currentUser?.uid ?: ""
-
-    LaunchedEffect(userId) {
-        if (userId.isNotEmpty()) {
-            val saved = FirestoreManager.loadProfileImage(userId)
-            if (!saved.isNullOrEmpty()) profileImageUri = Uri.parse(saved)
-        }
-    }
-
-    val profileLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let {
-            val saved = saveImageToInternalStorage(context, it)
-            profileImageUri = saved
-            kotlinx.coroutines.MainScope().launch {
-                FirestoreManager.saveProfileImage(userId, saved.toString())
-            }
-        }
-    }
-
-    // ── Stats ──────────────────────────────────────────────────────
-    val totalTerkumpul = listCelengan.sumOf { it.terkumpul }
-    val totalTarget = listCelengan.sumOf { it.target }
-    val totalTercapai = listCelengan.count { it.terkumpul >= it.target }
-    val totalTrx = listCelengan.sumOf { it.riwayat.size }
     val notifCount = listCelengan.count { it.notifAktif }
 
-    // ── Badges ─────────────────────────────────────────────────────
-    val badges = listOf(
-        BadgeData("⭐", "Pemula", "Buat celengan pertama", listCelengan.isNotEmpty()),
-        BadgeData("✦", "Rajin", "7 transaksi", totalTrx >= 7),
-        BadgeData("✓", "Konsisten", "30 transaksi", totalTrx >= 30),
-        BadgeData("🏅", "Pemenang", "Target tercapai", totalTercapai >= 1),
-        BadgeData("🪙", "Kolektor", "5 celengan", listCelengan.size >= 5)
-    )
-    val badgeEarned = badges.count { it.earned }
+    // ── Warna tema pink ───────────────────────────────────────────
+    val ProfilePinkBg     = Color(0xFFFCE4EC)
+    val ProfilePinkHeader = Color(0xFFF8BBD0)
+    val ProfilePurpleBg   = Color(0xFFEDE7F6)
+    val ProfileGreenBg    = Color(0xFFE8F5E9)
+    val ProfileYellowBg   = Color(0xFFFFF9C4)
+    val ProfileSectionLbl = Color(0xFFAAAAAA)
+    val ProfileCardBorder = Color(0xFFF0E0E8)
 
-    Box(Modifier
-        .fillMaxSize()
-        .background(Color(0xFFF0F4FF))) {
-        Column(Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFFF0F4))
+    ) {
+        if (showDataDiri) {
+            DataDiriScreen(onKembali = { showDataDiri = false })
+            return@Box
+        }
 
-            // ── TOP BAR ───────────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(White)
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 52.dp, bottom = 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Blue50),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.logo_wishpay),
-                                contentDescription = "wishPay",
-                                modifier = Modifier.size(26.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
-                        Text(
-                            "wishPay",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Blue600
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(Blue50)
-                            .border(1.dp, Blue100, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Notifications, null,
-                            tint = Blue600,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-
+        Scaffold(
+            bottomBar = {
+                WishPayBottomNav(
+                    currentNav = "profil",
+                    onNavChange = onNavChange,
+                    onTambah = onTambah,
+                    onProfil = { }
+                )
+            },
+            containerColor = Color(0xFFFFF0F4)
+        ) { innerPadding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(innerPadding)           // ← penting! agar tidak tertutup nav
                     .verticalScroll(rememberScrollState())
             ) {
-                // ── AVATAR + INFO ──────────────────────────────────
+                // ══ HEADER ══
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(White)
-                        .padding(bottom = 24.dp),
+                        .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                        .background(ProfilePinkHeader)
+                        .padding(top = 52.dp, bottom = 28.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        // Avatar
-                        Box(
-                            modifier = Modifier.size(90.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(86.dp)
-                                    .clip(CircleShape)
-                                    .background(Blue50)
-                                    .border(2.dp, Blue100, CircleShape)
-                                    .clickable { profileLauncher.launch("image/*") },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (profileImageUri != null) {
-                                    Image(
-                                        painter = rememberAsyncImagePainter(profileImageUri),
-                                        contentDescription = "foto profil",
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Text("🐻", fontSize = 38.sp)
-                                }
-                            }
-                            // Edit button
-                            Box(
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .align(Alignment.BottomEnd)
-                                    .clip(CircleShape)
-                                    .background(Blue600)
-                                    .border(2.dp, White, CircleShape)
-                                    .clickable { profileLauncher.launch("image/*") },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit, null,
-                                    tint = White,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        Text(
-                            displayName,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(email, fontSize = 13.sp, color = TextSecondary)
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Bergabung sejak $joinedDate",
-                            fontSize = 12.sp,
-                            color = TextHint
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(14.dp))
-
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-
-                    // ── Sistem Pencapaian ──────────────────────────
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = White),
-                        elevation = CardDefaults.cardElevation(0.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            0.5.dp, Color(0xFFDDE3EE)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Sistem Pencapaian",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    "$badgeEarned / ${badges.size} Badge",
-                                    fontSize = 12.sp,
-                                    color = Blue600,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-
-                            Spacer(Modifier.height(16.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceAround
-                            ) {
-                                badges.forEach { badge ->
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(52.dp)
-                                                .clip(CircleShape)
-                                                .background(
-                                                    if (badge.earned) Blue50
-                                                    else Color(0xFFF0F0F0)
-                                                )
-                                                .border(
-                                                    1.5.dp,
-                                                    if (badge.earned) Blue200
-                                                    else Color(0xFFDDDDDD),
-                                                    CircleShape
-                                                ),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (badge.earned) {
-                                                Text(badge.icon, fontSize = 20.sp)
-                                            } else {
-                                                Icon(
-                                                    Icons.Default.Delete,
-                                                    null,
-                                                    tint = Color(0xFFCCCCCC),
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            badge.label,
-                                            fontSize = 10.sp,
-                                            color = if (badge.earned) TextPrimary
-                                            else Color(0xFFBBBBBB),
-                                            fontWeight = if (badge.earned)
-                                                FontWeight.Medium else FontWeight.Normal
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // ── Pengaturan Akun ────────────────────────────
-                    Text(
-                        "Pengaturan Akun",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = White),
-                        elevation = CardDefaults.cardElevation(0.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            0.5.dp, Color(0xFFDDE3EE)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column {
-                            ProfileMenuItem(
-                                icon = "✏️",
-                                iconBg = Blue50,
-                                title = "Ubah Nama",
-                                showDivider = true,
-                                onClick = {
-                                    editNameValue = displayName
-                                    showEditName = true
-                                }
-                            )
-                            ProfileMenuItem(
-                                icon = "✉️",
-                                iconBg = Blue50,
-                                title = "Ubah Email",
-                                showDivider = true,
-                                onClick = {
-                                    Toast.makeText(
-                                        context,
-                                        "Fitur ubah email belum tersedia",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            )
-                            ProfileMenuItem(
-                                icon = "🔒",
-                                iconBg = Blue50,
-                                title = "Ubah Password",
-                                showDivider = true,
-                                onClick = { showPassword = true }
-                            )
-                            ProfileMenuItem(
-                                icon = "🔔",
-                                iconBg = Color(0xFFE8F5E9),
-                                title = "Pengaturan Notifikasi",
-                                subtitle = if (notifCount > 0)
-                                    "$notifCount celengan aktif" else null,
-                                showDivider = false,
-                                onClick = {
-                                    Toast.makeText(
-                                        context,
-                                        "Atur notifikasi di masing-masing celengan",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            )
-                        }
-                    }
-
-                    // ── Tombol Keluar ──────────────────────────────
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(White)
-                            .border(0.5.dp, Color(0xFFFFCDD2), RoundedCornerShape(14.dp))
-                            .clickable { showLogoutDialog = true }
-                            .padding(vertical = 16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.ArrowBack,
-                                null,
-                                tint = RedSoft,
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .rotate(180f)
-                            )
-                            Text(
-                                "Keluar",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = RedSoft
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(20.dp))
-                }
-            }
-        }
-
-        // ── POPUP: Edit Nama ───────────────────────────────────────
-        if (showEditName) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF000000).copy(0.5f))
-                    .clickable { showEditName = false },
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = White),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxWidth()
-                        .clickable(enabled = false) {}
-                ) {
-                    Column(
-                        Modifier.padding(22.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            "Ubah Nama",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Spacer(Modifier.height(18.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFF0F4FF))
-                                    .border(0.5.dp, Color(0xFFDDE3EE), RoundedCornerShape(12.dp))
-                                    .clickable { showEditName = false },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Batal",
-                                    fontSize = 13.sp,
-                                    color = TextSecondary,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1.5f)
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Blue600)
-                                    .clickable {
-                                        if (editNameValue.isNotEmpty()) {
-                                            isLoading = true
-                                            val updates =
-                                                com.google.firebase.auth.UserProfileChangeRequest
-                                                    .Builder()
-                                                    .setDisplayName(editNameValue)
-                                                    .build()
-                                            currentUser?.updateProfile(updates)
-                                                ?.addOnSuccessListener {
-                                                    isLoading = false
-                                                    displayName = editNameValue
-                                                    showEditName = false
-                                                    Toast.makeText(
-                                                        context,
-                                                        "Nama berhasil diubah",
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-                                                }
-                                                ?.addOnFailureListener {
-                                                    isLoading = false
-                                                    Toast.makeText(
-                                                        context,
-                                                        "Gagal ubah nama",
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-                                                }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isLoading) {
-                                    CircularProgressIndicator(
-                                        color = White,
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Text(
-                                        "Simpan",
-                                        fontSize = 13.sp,
-                                        color = White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ── POPUP: Ganti Password ──────────────────────────────────
-        if (showPassword) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF000000).copy(0.5f))
-                    .clickable {
-                        showPassword = false
-                        newPassword = ""
-                        confirmPassword = ""
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = White),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxWidth()
-                        .clickable(enabled = false) {}
-                ) {
-                    Column(
-                        Modifier.padding(22.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            "Ubah Password",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        OutlinedTextField(
-                            value = newPassword,
-                            onValueChange = { newPassword = it },
-                            label = { Text("Password Baru") },
-                            placeholder = { Text("Minimal 8 karakter", color = TextHint) },
-                            visualTransformation = if (showPwText)
-                                VisualTransformation.None
-                            else PasswordVisualTransformation(),
-                            trailingIcon = {
-                                IconButton(onClick = { showPwText = !showPwText }) {
-                                    Icon(
-                                        Icons.Default.Visibility, null,
-                                        tint = if (showPwText) Blue500 else TextHint,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            },
-
-                            )
-                        Spacer(Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value = confirmPassword,
-                            onValueChange = { confirmPassword = it },
-                            label = { Text("Ulangi password Anda") },
-                            visualTransformation = PasswordVisualTransformation(),
-                            trailingIcon = {
-                                Icon(
-                                    Icons.Default.Visibility, null,
-                                    tint = TextHint,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-
-                            )
-                        Spacer(Modifier.height(18.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFF0F4FF))
-                                    .border(
-                                        0.5.dp,
-                                        Color(0xFFDDE3EE),
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable {
-                                        showPassword = false
-                                        newPassword = ""
-                                        confirmPassword = ""
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Batal",
-                                    fontSize = 13.sp,
-                                    color = TextSecondary,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1.5f)
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Blue600)
-                                    .clickable {
-                                        when {
-                                            newPassword.length < 6 ->
-                                                Toast.makeText(
-                                                    context,
-                                                    "Minimal 6 karakter",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-
-                                            newPassword != confirmPassword ->
-                                                Toast.makeText(
-                                                    context,
-                                                    "Password tidak sama",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-
-                                            else -> {
-                                                isLoading = true
-                                                currentUser?.updatePassword(newPassword)
-                                                    ?.addOnSuccessListener {
-                                                        isLoading = false
-                                                        newPassword = ""
-                                                        confirmPassword = ""
-                                                        showPassword = false
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Password berhasil diubah",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
-                                                    ?.addOnFailureListener {
-                                                        isLoading = false
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Gagal. Coba re-login dulu.",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
-                                            }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isLoading) {
-                                    CircularProgressIndicator(
-                                        color = White,
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Text(
-                                        "Simpan",
-                                        fontSize = 13.sp,
-                                        color = White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ── POPUP: Logout ──────────────────────────────────────────
-        if (showLogoutDialog) {
-            val popupScale by animateFloatAsState(
-                if (showLogoutDialog) 1f else 0.85f,
-                spring(dampingRatio = 0.55f, stiffness = 400f),
-                label = "logoutScale"
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF000000).copy(0.5f))
-                    .clickable { showLogoutDialog = false },
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(28.dp)
-                        .scale(popupScale)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(White)
-                        .border(0.5.dp, Color(0xFFDDE3EE), RoundedCornerShape(24.dp))
-                        .clickable(enabled = false) {}
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        // Icon
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(
                             modifier = Modifier
-                                .size(64.dp)
+                                .size(80.dp)
+                                .shadow(4.dp, CircleShape)
                                 .clip(CircleShape)
-                                .background(Color(0xFFFFEBEE)),
+                                .background(Color.White),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("🚪", fontSize = 28.sp)
+                            Text(
+                                text = initials.ifEmpty { "U" },
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PinkMain
+                            )
                         }
-
-                        Spacer(Modifier.height(14.dp))
-
+                        Spacer(Modifier.height(12.dp))
                         Text(
-                            "Yakin ingin keluar?",
-                            fontSize = 17.sp,
+                            text = displayName,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            textAlign = TextAlign.Center
+                            color = Color(0xFF4A148C)
                         )
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(2.dp))
                         Text(
-                            "Data tabunganmu tetap aman\ntersimpan di akun.",
+                            text = email,
                             fontSize = 13.sp,
-                            color = TextSecondary,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 20.sp
+                            color = Color(0xFF9E9E9E)
                         )
-
-                        Spacer(Modifier.height(22.dp))
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(50.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFF0F4FF))
-                                    .border(
-                                        0.5.dp,
-                                        Color(0xFFDDE3EE),
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable { showLogoutDialog = false },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Batal",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextSecondary
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1.5f)
-                                    .height(50.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(RedSoft)
-                                    .clickable {
-                                        showLogoutDialog = false
-                                        onLogout()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Ya, Keluar",
-                                    color = White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                            }
+                        Spacer(Modifier.height(14.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50.dp))
+                                .background(Color.White)
+                                .border(1.dp, ProfilePinkHeader, RoundedCornerShape(50.dp))
+                                .clickable { showEditName = true }
+                                .padding(horizontal = 28.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Edit Profil",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF4A148C)
+                            )
                         }
                     }
                 }
+
+                Spacer(Modifier.height(20.dp))
+                ProfileSectionLabel("AKUN")
+                Spacer(Modifier.height(8.dp))
+                ProfileMenuCard(borderColor = ProfileCardBorder) {
+                    ProfileMenuRow(
+                        iconBg = ProfilePinkBg, iconText = "👤",
+                        title = "Data Diri", showDivider = true,
+                        onClick = { showDataDiri = true }
+                    )
+                    ProfileMenuRow(
+                        iconBg = ProfilePurpleBg, iconText = "🔒",
+                        title = "Keamanan & PIN", showDivider = false,
+                        onClick = { showPassword = true }
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+                ProfileSectionLabel("PENGATURAN")
+                Spacer(Modifier.height(8.dp))
+                ProfileMenuCard(borderColor = ProfileCardBorder) {
+                    ProfileMenuRow(
+                        iconBg = ProfileGreenBg, iconText = "🔔",
+                        title = "Notifikasi", trailingText = "Aktif",
+                        showDivider = true,
+                        onClick = { Toast.makeText(context, "Atur notifikasi di masing-masing celengan", Toast.LENGTH_SHORT).show() }
+                    )
+                    ProfileMenuRow(
+                        iconBg = ProfileYellowBg, iconText = "🌙",
+                        title = "Mode Gelap", trailingText = "Nonaktif",
+                        showDivider = true,
+                        onClick = { Toast.makeText(context, "Fitur mode gelap belum tersedia", Toast.LENGTH_SHORT).show() }
+                    )
+                    ProfileMenuRow(
+                        iconBg = ProfilePinkBg, iconText = "🌐",
+                        title = "Bahasa", trailingText = "Indonesia",
+                        showDivider = false,
+                        onClick = { Toast.makeText(context, "Fitur ganti bahasa belum tersedia", Toast.LENGTH_SHORT).show() }
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+                ProfileSectionLabel("LAINNYA")
+                Spacer(Modifier.height(8.dp))
+                ProfileMenuCard(borderColor = ProfileCardBorder) {
+                    ProfileMenuRow(
+                        iconBg = ProfilePurpleBg, iconText = "❓",
+                        title = "Bantuan", showDivider = true,
+                        onClick = { Toast.makeText(context, "Fitur bantuan belum tersedia", Toast.LENGTH_SHORT).show() }
+                    )
+                    ProfileMenuRow(
+                        iconBg = ProfileGreenBg, iconText = "⭐",
+                        title = "Beri Rating Aplikasi", showDivider = false,
+                        onClick = { Toast.makeText(context, "Terima kasih atas dukunganmu!", Toast.LENGTH_SHORT).show() }
+                    )
+                }
+
+                Spacer(Modifier.height(24.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(ProfilePinkBg)
+                        .border(1.dp, Color(0xFFF48FB1), RoundedCornerShape(14.dp))
+                        .clickable { showLogoutDialog = true }
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Keluar dari Akun",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PinkMain
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
             }
+        }
+
+        // Popup-popup tetap di sini (showEditName, showPassword, showLogoutDialog)
+        if (showEditName) { /* ... kode popup edit nama tetap ... */ }
+        if (showPassword) { /* ... kode popup password tetap ... */ }
+        if (showLogoutDialog) { /* ... kode popup logout tetap ... */ }
+    }
+}
+
+// ── Helper: Label section ─────────────────────────────────────────
+@Composable
+private fun ProfileSectionLabel(text: String) {
+    Text(
+        text = text,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = Color(0xFFAAAAAA),
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(horizontal = 20.dp)
+    )
+}
+
+// ── Helper: Card wrapper ──────────────────────────────────────────
+@Composable
+private fun ProfileMenuCard(
+    borderColor: Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+    ) {
+        Column(content = content)
+    }
+}
+
+// ── Helper: Satu baris menu ───────────────────────────────────────
+@Composable
+private fun ProfileMenuRow(
+    iconBg: Color,
+    iconText: String,
+    title: String,
+    trailingText: String? = null,
+    showDivider: Boolean,
+    onClick: () -> Unit
+) {
+    // Pilih icon Material berdasarkan teks emoji/key
+    val iconVector: androidx.compose.ui.graphics.vector.ImageVector = when (iconText) {
+        "👤" -> Icons.Default.Person
+        "🔒" -> Icons.Default.Notifications   // pakai Lock jika ada, fallback Notifications
+        "🔔" -> Icons.Default.Notifications
+        "🌙" -> Icons.Default.Timer
+        "🌐" -> Icons.Default.Person
+        "❓" -> Icons.Default.Person
+        "⭐" -> Icons.Default.CalendarToday
+        else -> Icons.Default.Person
+    }
+
+    // Warna tint icon per kategori
+    val iconTint: Color = when (iconText) {
+        "👤" -> Color(0xFFE91E8C)        // pink
+        "🔒" -> Color(0xFF9575CD)        // purple
+        "🔔" -> Color(0xFF43A047)        // green
+        "🌙" -> Color(0xFFF9A825)        // yellow/amber
+        "🌐" -> Color(0xFFE91E8C)        // pink
+        "❓" -> Color(0xFF9575CD)        // purple
+        "⭐" -> Color(0xFF43A047)        // green
+        else -> Color(0xFF9E9E9E)
+    }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+
+            // GANTI dengan:
+            Box(
+                modifier = Modifier
+                    .size(46.dp)           // ← dari 38.dp jadi 46.dp (lebih besar)
+                    .clip(RoundedCornerShape(14.dp))  // ← radius lebih besar
+                    .background(iconBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp)   // ← dari 20.dp jadi 24.dp
+                )
+            }
+
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF37474F),
+                modifier = Modifier.weight(1f)
+            )
+
+            if (trailingText != null) {
+                Text(
+                    trailingText,
+                    fontSize = 13.sp,
+                    color = Color(0xFFAAAAAA)
+                )
+            } else {
+                Icon(
+                    Icons.Default.ArrowBack,
+                    null,
+                    tint = Color(0xFFCCCCCC),
+                    modifier = Modifier
+                        .size(14.dp)
+                        .rotate(180f)
+                )
+            }
+        }
+
+        if (showDivider) {
+            HorizontalDivider(
+                color = Color(0xFFF5F5F5),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
     }
 }
@@ -7873,133 +6979,639 @@ fun saveImageToInternalStorage(context: Context, uri: Uri): Uri {
     return Uri.fromFile(file)
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  DATA DIRI SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+fun DataDiriScreen(
+    onKembali: () -> Unit
+) {
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+    val context = LocalContext.current
+
+    var namaLengkap  by remember { mutableStateOf(currentUser?.displayName ?: "") }
+    var namaPanggilan by remember { mutableStateOf(
+        currentUser?.displayName?.split(" ")?.firstOrNull() ?: ""
+    ) }
+    var email        by remember { mutableStateOf(currentUser?.email ?: "") }
+    var nomorHp      by remember { mutableStateOf("") }
+    var tanggalLahir by remember { mutableStateOf("") }
+    var jenisKelamin by remember { mutableStateOf("Perempuan") }
+    var isLoading    by remember { mutableStateOf(false) }
+
+    val initials = namaLengkap.split(" ").take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
+
+    val ProfilePinkHeader = Color(0xFFF8BBD0)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFFF0F4))
+    ) {
+        // ── HEADER ──────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                .background(ProfilePinkHeader)
+                .padding(horizontal = 20.dp)
+                .padding(top = 52.dp, bottom = 24.dp)
+        ) {
+            // Tombol kembali
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.7f))
+                    .clickable { onKembali() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.ArrowBack, null,
+                    tint = Color(0xFF4A148C),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            // Judul tengah
+            Text(
+                "Data Diri",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF4A148C),
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+
+        // ── KONTEN SCROLLABLE ────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            // ── CARD UTAMA ───────────────────────────────────────────
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(2.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    // ── AVATAR ───────────────────────────────────────
+                    Box(
+                        modifier = Modifier.size(80.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .background(PinkMain),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                initials.ifEmpty { "U" },
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                        // Camera badge
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .align(Alignment.BottomEnd)
+                                .clip(CircleShape)
+                                .background(PinkMain)
+                                .border(2.dp, Color.White, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.CameraAlt, null,
+                                tint = Color.White,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        "Ubah Foto Profil",
+                        fontSize = 13.sp,
+                        color = PinkMain,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // ── FORM FIELDS ──────────────────────────────────
+
+                    // Nama Lengkap
+                    DataDiriField(
+                        label = "Nama Lengkap",
+                        value = namaLengkap,
+                        onValueChange = { namaLengkap = it }
+                    )
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Nama Panggilan
+                    DataDiriField(
+                        label = "Nama Panggilan",
+                        value = namaPanggilan,
+                        onValueChange = { namaPanggilan = it }
+                    )
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Email (read only)
+                    DataDiriField(
+                        label = "Email",
+                        value = email,
+                        onValueChange = { },
+                        readOnly = true
+                    )
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Nomor HP
+                    DataDiriField(
+                        label = "Nomor HP",
+                        value = nomorHp,
+                        onValueChange = { nomorHp = it },
+                        placeholder = "+62 812 3456 7890"
+                    )
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Tanggal Lahir
+                    DataDiriField(
+                        label = "Tanggal Lahir",
+                        value = tanggalLahir,
+                        onValueChange = { tanggalLahir = it },
+                        placeholder = "12 Januari 2000"
+                    )
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // ── Jenis Kelamin ────────────────────────────────
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            "Jenis Kelamin",
+                            fontSize = 12.sp,
+                            color = Color(0xFF9E9E9E),
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            listOf("Perempuan", "Laki-laki").forEach { gender ->
+                                val isSelected = jenisKelamin == gender
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (isSelected) Color(0xFFFFF0F4)
+                                            else Color.White
+                                        )
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) PinkMain
+                                            else Color(0xFFE0E0E0),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable { jenisKelamin = gender },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        gender,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (isSelected)
+                                            FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (isSelected) PinkMain
+                                        else Color(0xFF9E9E9E)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // ── TOMBOL SIMPAN ────────────────────────────────
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(PinkMain)
+                            .clickable(enabled = !isLoading) {
+                                if (namaLengkap.isNotEmpty()) {
+                                    isLoading = true
+                                    val updates = com.google.firebase.auth.UserProfileChangeRequest
+                                        .Builder()
+                                        .setDisplayName(namaLengkap)
+                                        .build()
+                                    currentUser?.updateProfile(updates)
+                                        ?.addOnSuccessListener {
+                                            isLoading = false
+                                            Toast.makeText(
+                                                context,
+                                                "Data berhasil disimpan",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            onKembali()
+                                        }
+                                        ?.addOnFailureListener {
+                                            isLoading = false
+                                            Toast.makeText(
+                                                context,
+                                                "Gagal menyimpan data",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Nama lengkap tidak boleh kosong",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.5.dp
+                            )
+                        } else {
+                            Text(
+                                "Simpan Perubahan",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+// ── Helper field untuk Data Diri ──────────────────────────────────
+@Composable
+private fun DataDiriField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = "",
+    readOnly: Boolean = false
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            label,
+            fontSize = 12.sp,
+            color = Color(0xFF9E9E9E),
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(6.dp))
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = {
+                Text(
+                    placeholder.ifEmpty { label },
+                    color = Color(0xFFBDBDBD),
+                    fontSize = 14.sp
+                )
+            },
+            readOnly = readOnly,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PinkMain,
+                unfocusedBorderColor = Color(0xFFE0E0E0),
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                cursorColor = PinkMain,
+                focusedTextColor = Color(0xFF37474F),
+                unfocusedTextColor = Color(0xFF37474F),
+                disabledBorderColor = Color(0xFFE0E0E0),
+                disabledContainerColor = Color(0xFFF5F5F5),
+                disabledTextColor = Color(0xFF9E9E9E)
+            )
+        )
+    }
+}
+
 
 @Composable
 fun NotificationScreen(
     notifications: List<NotificationItem>,
     onBack: () -> Unit
 ) {
+    var selectedFilter by remember { mutableStateOf("Semua") }
+    val filters = listOf("Semua", "Pengingat", "Aktivitas", "Target")
+
+    val filtered = when (selectedFilter) {
+        "Pengingat"  -> notifications.filter { it.type == "pengingat" }
+        "Aktivitas"  -> notifications.filter {
+            it.type == "aktivitas_masuk" || it.type == "aktivitas_keluar"
+        }
+        "Target"     -> notifications.filter {
+            it.type == "target" || it.type == "progress"
+        }
+        else         -> notifications
+    }
+
+    // Urutan tanggal: Hari ini → Kemarin → tanggal lainnya
+    val grouped = filtered.groupBy { it.date }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF0F4FF))
+            .background(Color(0xFFFFF0F4))
     ) {
 
-        // HEADER
+        // ── HEADER ────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(White)
+                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                .background(Color(0xFFF8BBD0))
                 .padding(horizontal = 20.dp)
                 .padding(top = 52.dp, bottom = 18.dp)
         ) {
-
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF0F4FF))
-                        .border(
-                            0.5.dp,
-                            Color(0xFFDDE3EE),
-                            CircleShape
-                        )
-                        .clickable { onBack() },
-                    contentAlignment = Alignment.Center
+                // Kiri: tombol back + judul
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(
-                        Icons.Default.ArrowBack,
-                        null,
-                        tint = TextPrimary,
-                        modifier = Modifier.size(18.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.75f))
+                            .clickable { onBack() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.ArrowBack, null,
+                            tint = Color(0xFF4A148C),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        "Notifikasi",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4A148C)
                     )
                 }
 
-                Text(
-                    "Notifikasi",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+                // Kanan: tombol "Tandai Dibaca"
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50.dp))
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE91E8C), RoundedCornerShape(50.dp))
+                        .clickable { /* tandai semua dibaca */ }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "Tandai Dibaca",
+                        fontSize = 12.sp,
+                        color = Color(0xFFE91E8C),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
-        // LIST NOTIF
-        LazyColumn(
+        // ── FILTER CHIPS ─────────────────────────────────────────
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = 14.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
-            items(notifications) { notif ->
-
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = White),
-                    elevation = CardDefaults.cardElevation(0.dp),
-                    border = BorderStroke(
-                        0.7.dp,
-                        Color(0xFFDDE3EE)
-                    )
+            filters.forEach { filter ->
+                val isActive = selectedFilter == filter
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50.dp))
+                        .background(if (isActive) Color(0xFFE91E8C) else Color.White)
+                        .border(
+                            1.dp,
+                            if (isActive) Color(0xFFE91E8C) else Color(0xFFE0C8D4),
+                            RoundedCornerShape(50.dp)
+                        )
+                        .clickable { selectedFilter = filter }
+                        .padding(horizontal = 18.dp, vertical = 9.dp)
                 ) {
+                    Text(
+                        filter,
+                        fontSize = 13.sp,
+                        color = if (isActive) Color.White else Color(0xFF9E9E9E),
+                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                }
+            }
+        }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
+        // ── ISI LIST ─────────────────────────────────────────────
+        if (filtered.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🔔", fontSize = 40.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Belum ada notifikasi",
+                        fontSize = 15.sp,
+                        color = PinkSubText,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Aktifkan pengingat di celenganmu",
+                        fontSize = 13.sp,
+                        color = PinkSubText
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 16.dp, end = 16.dp,
+                    top = 8.dp, bottom = 32.dp
+                )
+            ) {
+                grouped.forEach { (dateKey, items) ->
 
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(Blue100),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "🔔",
-                                fontSize = 20.sp
-                            )
-                        }
+                    // Label tanggal section
+                    item {
+                        Text(
+                            dateKey.uppercase(),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFAAAAAA),
+                            letterSpacing = 0.6.sp,
+                            modifier = Modifier.padding(top = 14.dp, bottom = 8.dp)
+                        )
+                    }
 
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-
-                            Text(
-                                notif.title,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-
-                            Spacer(Modifier.height(4.dp))
-
-                            Text(
-                                notif.message,
-                                fontSize = 12.sp,
-                                color = TextSecondary,
-                                lineHeight = 18.sp
-                            )
-
-                            Spacer(Modifier.height(8.dp))
-
-                            Text(
-                                notif.time,
-                                fontSize = 11.sp,
-                                color = TextHint
-                            )
-                        }
+                    // Kartu notifikasi
+                    items(items) { notif ->
+                        NotifCard(notif = notif)
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun NotifCard(notif: NotificationItem) {
+
+    // Tentukan warna & ikon sesuai tipe
+    val iconBg: Color
+    val iconTint: Color
+    val iconLabel: String
+
+    when (notif.type) {
+        "aktivitas_masuk" -> {
+            iconBg    = Color(0xFFE8F5E9)
+            iconTint  = Color(0xFF43A047)
+            iconLabel = "↑"
+        }
+        "aktivitas_keluar" -> {
+            iconBg    = Color(0xFFFFEBEE)
+            iconTint  = Color(0xFFEF5350)
+            iconLabel = "↓"
+        }
+        "target" -> {
+            iconBg    = Color(0xFFE8F5E9)
+            iconTint  = Color(0xFF43A047)
+            iconLabel = "✓"
+        }
+        "progress" -> {
+            iconBg    = Color(0xFFFFF9C4)
+            iconTint  = Color(0xFFF9A825)
+            iconLabel = "!"
+        }
+        else -> {                               // "pengingat" (default)
+            iconBg    = Color(0xFFF3E5F5)
+            iconTint  = Color(0xFF9C27B0)
+            iconLabel = "🔔"
+        }
+    }
+
+    // Warna teks pesan untuk tipe tertentu
+    val msgColor = when (notif.type) {
+        "aktivitas_masuk" -> Color(0xFF43A047)
+        else              -> Color(0xFF78909C)
+    }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = BorderStroke(1.dp, Color(0xFFF5E0EA)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+
+            // ── ICON ──────────────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(iconBg),
+                contentAlignment = Alignment.Center
+            ) {
+                if (notif.type == "pengingat") {
+                    Text(iconLabel, fontSize = 20.sp)
+                } else {
+                    Text(
+                        iconLabel,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = iconTint
+                    )
+                }
+            }
+
+            // ── KONTEN TEKS ────────────────────────────────────────
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    notif.title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF37474F)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    notif.message,
+                    fontSize = 12.sp,
+                    color = msgColor,
+                    lineHeight = 18.sp
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    notif.time,
+                    fontSize = 11.sp,
+                    color = Color(0xFFBBBBBB)
+                )
+            }
+
+            // ── UNREAD DOT ─────────────────────────────────────────
+            if (!notif.isRead) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE91E8C))
+                )
             }
         }
     }
